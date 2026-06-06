@@ -4,7 +4,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { DivIcon } from 'leaflet';
 import TopBar from '../components/layout/TopBar';
-import { createMatch } from '../api/match';
+import { createMatch, bulkParse, bulkRun } from '../api/match';
+import type { BulkParsedItem, BulkResultItem } from '../api/match';
 import apiClient from '../api/client';
 import type { DonorCandidate } from '../types';
 
@@ -266,8 +267,161 @@ function CityDropdown({ city, onChange }: { city: City; onChange: (c: City) => v
   );
 }
 
+const BULK_BLOOD_GROUPS = [
+  'A Positive', 'A Negative', 'B Positive', 'B Negative',
+  'O Positive', 'O Negative', 'AB Positive', 'AB Negative',
+];
+
+function bgShort(bg: string) {
+  const m: Record<string, string> = {
+    'A Positive': 'A+', 'A Negative': 'A−', 'B Positive': 'B+', 'B Negative': 'B−',
+    'O Positive': 'O+', 'O Negative': 'O−', 'AB Positive': 'AB+', 'AB Negative': 'AB−',
+  };
+  return m[bg] || bg;
+}
+
+function today7() {
+  const d = new Date(); d.setDate(d.getDate() + 7);
+  return d.toISOString().split('T')[0];
+}
+
+function BulkItemCard({ item, index, onChange, onRemove, canRemove }: {
+  item: BulkParsedItem; index: number;
+  onChange: (i: number, p: Partial<BulkParsedItem>) => void;
+  onRemove: (i: number) => void; canRemove: boolean;
+}) {
+  return (
+    <div className="relative bg-surface rounded-xl border border-outline-variant p-md">
+      <div className="flex items-center justify-between mb-sm">
+        <span className="text-label-sm text-on-surface-variant font-bold uppercase tracking-widest">Request {index + 1}</span>
+        <span className="text-label-sm font-bold text-primary px-sm py-xs rounded-full bg-primary-container">{bgShort(item.blood_group)}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-sm">
+        <div>
+          <label className="text-label-sm text-on-surface-variant block mb-xs">Blood Group</label>
+          <select value={item.blood_group} onChange={e => onChange(index, { blood_group: e.target.value })}
+            className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-sm py-xs text-body-sm text-on-surface">
+            {BULK_BLOOD_GROUPS.map(bg => <option key={bg}>{bg}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-label-sm text-on-surface-variant block mb-xs">Units</label>
+          <input type="number" min={1} max={200} value={item.units}
+            onChange={e => onChange(index, { units: Math.max(1, parseInt(e.target.value) || 1) })}
+            className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-sm py-xs text-body-sm text-on-surface" />
+        </div>
+        <div>
+          <label className="text-label-sm text-on-surface-variant block mb-xs">City</label>
+          <input type="text" value={item.city} onChange={e => onChange(index, { city: e.target.value })}
+            className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-sm py-xs text-body-sm text-on-surface" />
+        </div>
+        <div>
+          <label className="text-label-sm text-on-surface-variant block mb-xs">Date</label>
+          <input type="date" value={item.transfusion_date} onChange={e => onChange(index, { transfusion_date: e.target.value })}
+            className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-sm py-xs text-body-sm text-on-surface" />
+        </div>
+      </div>
+      {canRemove && (
+        <button onClick={() => onRemove(index)}
+          className="absolute top-sm right-sm w-5 h-5 flex items-center justify-center rounded-full bg-error-container text-error hover:bg-error hover:text-on-error transition-colors">
+          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>close</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function BulkResultBlock({ result, navigate }: { result: BulkResultItem; navigate: ReturnType<typeof useNavigate> }) {
+  const [open, setOpen] = useState(true);
+  const TIER_CLR: Record<string, string> = { Tier1: '#b91c1c', Tier2: '#c2410c', Tier3: '#92400e' };
+  return (
+    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors text-left">
+        <span className="text-headline-sm font-bold" style={{ color: result.status === 'no_donors' ? '#ef4444' : '#22c55e' }}>
+          {bgShort(result.blood_group)}
+        </span>
+        <div className="flex-1">
+          <div className="text-label-md font-bold text-on-surface">{result.units} units · {result.city}</div>
+          <div className="text-label-sm text-on-surface-variant">{result.transfusion_date}</div>
+        </div>
+        {result.status === 'matched'
+          ? <span className="text-label-sm text-white bg-emerald-600 px-sm py-xs rounded-full font-bold">{result.total} donors</span>
+          : <span className="text-label-sm text-white bg-red-600 px-sm py-xs rounded-full font-bold">No donors</span>
+        }
+        {result.match_id && (
+          <button onClick={e => { e.stopPropagation(); navigate(`/outreach/${result.match_id}`); }}
+            className="flex items-center gap-xs text-label-sm px-sm py-xs rounded-lg bg-primary-container text-on-primary font-bold hover:bg-primary transition-colors">
+            <span className="material-symbols-outlined" style={{ fontSize: 13 }}>chat_bubble</span>Log
+          </button>
+        )}
+        <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 18 }}>{open ? 'expand_less' : 'expand_more'}</span>
+      </button>
+      {open && result.status === 'matched' && (
+        <div className="px-md pb-md flex flex-col gap-sm">
+          {(result.candidates as Record<string, unknown>[]).map((c, i) => (
+            <div key={i} className="bg-surface rounded-lg border border-outline-variant/40 p-sm flex items-center gap-sm">
+              <span className="w-6 h-6 rounded-full bg-primary-container text-on-primary text-label-sm font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+              <span className="font-mono text-label-md font-bold text-on-surface flex-1">{c.user_id_hash_short as string}</span>
+              <span className="text-label-sm text-on-surface-variant">{c.city as string}</span>
+              <span className="text-label-sm text-on-surface-variant">{(c.distance_km as number)?.toFixed(1)} km</span>
+              {c.tier && <span className="text-label-xs px-xs py-[1px] rounded text-white font-bold" style={{ background: TIER_CLR[c.tier as string] || '#6b7280', fontSize: 10 }}>{c.tier as string}</span>}
+              <span className="text-label-sm font-bold" style={{ color: '#22c55e' }}>{((c.score as number) * 100)?.toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && result.status === 'no_donors' && (
+        <div className="px-md pb-md">
+          <p className="text-body-sm text-on-surface-variant bg-surface p-sm rounded-lg">
+            No eligible {result.blood_group} donors in {result.city} for {result.transfusion_date}.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MatchPage() {
   const navigate = useNavigate();
+  const [mode, setMode] = useState<'single' | 'bulk'>('single');
+
+  // ── Bulk state ──────────────────────────────────────────────────────────────
+  const [bulkText, setBulkText] = useState('');
+  const [bulkItems, setBulkItems] = useState<BulkParsedItem[]>([]);
+  const [bulkResults, setBulkResults] = useState<BulkResultItem[]>([]);
+  const [bulkParseLoading, setBulkParseLoading] = useState(false);
+  const [bulkRunLoading, setBulkRunLoading] = useState(false);
+  const [bulkError, setBulkError] = useState('');
+  const [bulkStage, setBulkStage] = useState<'input' | 'parsed' | 'results'>('input');
+
+  async function handleBulkParse() {
+    if (!bulkText.trim()) return;
+    setBulkParseLoading(true); setBulkError('');
+    try {
+      const res = await bulkParse(bulkText);
+      setBulkItems(res.items);
+      setBulkStage('parsed');
+    } catch (e: unknown) {
+      setBulkError((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Parse failed.');
+    } finally { setBulkParseLoading(false); }
+  }
+
+  async function handleBulkRun() {
+    if (!bulkItems.length) return;
+    setBulkRunLoading(true); setBulkError('');
+    try {
+      const res = await bulkRun(bulkItems);
+      setBulkResults(res.results);
+      setBulkStage('results');
+    } catch (e: unknown) {
+      setBulkError((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Matching failed.');
+    } finally { setBulkRunLoading(false); }
+  }
+
+  function patchBulkItem(i: number, patch: Partial<BulkParsedItem>) {
+    setBulkItems(prev => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it));
+  }
 
   // If the user is a patient, lock blood group to their profile
   const patientBG = (() => {
@@ -376,8 +530,72 @@ export default function MatchPage() {
           {/* Left: Form */}
           <div className="lg:col-span-5 flex flex-col gap-md">
             <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-lg flex-1">
-              <h3 className="text-headline-md font-bold text-on-surface mb-md pb-sm border-b border-outline-variant">New Match Request</h3>
-              <div className="flex flex-col gap-md">
+              {/* Mode tabs */}
+              <div className="flex gap-xs mb-md pb-sm border-b border-outline-variant">
+                <button onClick={() => setMode('single')}
+                  className={`flex items-center gap-xs px-md py-sm rounded-lg text-label-md font-bold transition-colors ${mode === 'single' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
+                  Single Match
+                </button>
+                <button onClick={() => setMode('bulk')}
+                  className={`flex items-center gap-xs px-md py-sm rounded-lg text-label-md font-bold transition-colors ${mode === 'bulk' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>biotech</span>
+                  Bulk Match
+                </button>
+              </div>
+
+              {/* ── Bulk mode form ── */}
+              {mode === 'bulk' && (
+                <div className="flex flex-col gap-md">
+                  <p className="text-body-sm text-on-surface-variant">
+                    Describe multiple blood requirements naturally — AI will parse and run all matches at once.
+                  </p>
+                  <textarea rows={4} value={bulkText} onChange={e => setBulkText(e.target.value)}
+                    placeholder={'e.g. Need 10 A+, 20 O-ve urgently in Hyderabad.\nAlso 8 B+ in Mumbai for Thursday.'}
+                    className="w-full bg-surface border border-outline-variant rounded-xl px-md py-sm text-body-md text-on-surface resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  {bulkError && <p className="text-label-sm text-error bg-error-container px-md py-sm rounded-xl">{bulkError}</p>}
+                  <button onClick={handleBulkParse} disabled={bulkParseLoading || !bulkText.trim()}
+                    className="w-full flex items-center justify-center gap-sm py-md rounded-xl bg-primary-container text-on-primary text-label-md font-bold hover:bg-primary transition-colors disabled:opacity-60">
+                    {bulkParseLoading
+                      ? <><span className="animate-spin material-symbols-outlined">progress_activity</span> Parsing…</>
+                      : <><span className="material-symbols-outlined">auto_awesome</span> Parse with AI</>}
+                  </button>
+
+                  {bulkStage !== 'input' && (
+                    <>
+                      <div className="flex items-center justify-between mt-sm">
+                        <span className="text-label-md font-bold text-on-surface">Parsed Requests</span>
+                        <button onClick={() => setBulkItems(prev => [...prev, {
+                          blood_group: 'O Positive', units: 1, city: 'Hyderabad',
+                          transfusion_date: today7(), lat: 17.385, lon: 78.4867 }])}
+                          className="flex items-center gap-xs text-label-sm text-primary border border-primary rounded-lg px-sm py-xs font-bold">
+                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>Add
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-sm max-h-64 overflow-y-auto pr-xs">
+                        {bulkItems.map((item, i) => (
+                          <BulkItemCard key={i} item={item} index={i} onChange={patchBulkItem}
+                            onRemove={idx => setBulkItems(p => p.filter((_, j) => j !== idx))}
+                            canRemove={bulkItems.length > 1} />
+                        ))}
+                      </div>
+                      <div className="bg-surface rounded-xl px-md py-sm flex items-center justify-between border border-outline-variant/30 text-label-sm text-on-surface-variant">
+                        <span><b className="text-on-surface">{bulkItems.length}</b> types · <b className="text-on-surface">{bulkItems.reduce((s, it) => s + it.units, 0)}</b> units total</span>
+                      </div>
+                      <button onClick={handleBulkRun} disabled={bulkRunLoading || !bulkItems.length}
+                        className="w-full flex items-center justify-center gap-sm py-md rounded-xl text-label-md font-bold text-white transition-all disabled:opacity-50"
+                        style={{ background: '#16a34a' }}>
+                        {bulkRunLoading
+                          ? <><span className="animate-spin material-symbols-outlined">progress_activity</span> Matching all…</>
+                          : <><span className="material-symbols-outlined icon-fill">bolt</span> Run All Matches</>}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── Single mode form ── */}
+              {mode === 'single' && <div className="flex flex-col gap-md">
                 {/* Blood group selector */}
                 <div>
                   <label className="block text-label-md text-on-surface-variant mb-sm">
@@ -487,13 +705,76 @@ export default function MatchPage() {
                     </>
                   )}
                 </button>
-              </div>
+              </div>}
             </div>
           </div>
 
           {/* Right: Results */}
           <div className="lg:col-span-7 flex flex-col">
-            {loading && (
+
+            {/* ── Bulk results ── */}
+            {mode === 'bulk' && (
+              <>
+                {bulkStage === 'input' && (
+                  <div className="flex flex-col items-center justify-center flex-1 gap-md py-xl text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[64px] text-outline">biotech</span>
+                    <p className="text-body-lg text-center">Describe your requirements and parse with AI to start.</p>
+                  </div>
+                )}
+                {bulkStage === 'parsed' && !bulkRunLoading && (
+                  <div className="flex flex-col items-center justify-center flex-1 gap-md py-xl text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[64px] text-outline">format_list_bulleted</span>
+                    <p className="text-body-lg">Review your requests on the left, then click <b>Run All Matches</b>.</p>
+                  </div>
+                )}
+                {bulkRunLoading && (
+                  <div className="flex flex-col items-center justify-center flex-1 gap-lg py-xl">
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                      <span className="material-symbols-outlined text-primary text-[32px] absolute inset-0 flex items-center justify-center">water_drop</span>
+                    </div>
+                    <p className="text-body-lg text-on-surface font-semibold">Running {bulkItems.length} matches in parallel…</p>
+                  </div>
+                )}
+                {bulkStage === 'results' && !bulkRunLoading && (
+                  <div className="flex flex-col gap-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-sm">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
+                        </span>
+                        <span className="text-label-md text-primary font-bold">All Matches Complete</span>
+                      </div>
+                      <div className="flex gap-md text-label-sm text-on-surface-variant">
+                        <span><b className="text-emerald-600">{bulkResults.filter(r => r.status === 'matched').length}</b> matched</span>
+                        <span><b className="text-red-500">{bulkResults.filter(r => r.status === 'no_donors').length}</b> no donors</span>
+                      </div>
+                    </div>
+                    {bulkResults.filter(r => r.match_id).length > 0 && (
+                      <div className="bg-green-900/10 border border-green-700/30 rounded-xl px-md py-sm flex items-center gap-sm">
+                        <span className="material-symbols-outlined icon-fill" style={{ color: '#22c55e', fontSize: 18 }}>task_alt</span>
+                        <span className="text-body-sm text-on-surface flex-1">
+                          Outreach started for <b>{bulkResults.filter(r => r.match_id).length}</b> matches — logged in Outreach Log.
+                        </span>
+                        <button onClick={() => navigate('/outreach')}
+                          className="text-label-sm text-green-600 font-bold hover:underline">View →</button>
+                      </div>
+                    )}
+                    {bulkResults.map((result, i) => (
+                      <BulkResultBlock key={i} result={result} navigate={navigate} />
+                    ))}
+                    <button onClick={() => { setBulkStage('input'); setBulkText(''); setBulkItems([]); setBulkResults([]); }}
+                      className="flex items-center justify-center gap-sm py-sm rounded-xl border border-outline-variant text-label-md text-on-surface-variant hover:text-on-surface transition-colors mt-sm">
+                      <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>New Bulk Request
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Single match results ── */}
+            {mode === 'single' && loading && (
               <div className="flex flex-col items-center justify-center flex-1 gap-lg py-xl">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />

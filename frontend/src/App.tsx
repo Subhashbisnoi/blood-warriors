@@ -23,6 +23,7 @@ import BillUploadPage from './pages/BillUploadPage';
 import BillsDashboardPage from './pages/BillsDashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import InventoryDashboard from './pages/InventoryDashboard';
+import BulkMatchPage from './pages/BulkMatchPage';
 
 function ChatFab() {
   const navigate = useNavigate();
@@ -69,6 +70,7 @@ export default function App() {
         <Route element={<RequireAuth />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/match" element={<MatchPage />} />
+          <Route path="/bulk-match" element={<BulkMatchPage />} />
           <Route path="/outreach" element={<LiveOutreach />} />
           <Route path="/outreach/:matchId" element={<LiveOutreach />} />
           <Route path="/bridges" element={<BridgeStatus />} />
