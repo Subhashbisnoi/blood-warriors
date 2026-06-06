@@ -282,6 +282,8 @@ export default function MatchPage() {
   const [contactState, setContactState] = useState<Record<number, ContactState>>({});
   const [confirmedRank, setConfirmedRank] = useState<number | null>(null);
   const [city, setCity] = useState<City>(INDIA_CITIES[0]);
+  const [autoSending, setAutoSending] = useState(false);
+  const [autoLog, setAutoLog] = useState<{ rank: number; name: string; status: 'sending' | 'sent' | 'error' }[]>([]);
 
   async function handleContact(rank: number) {
     if (!matchId) return;
@@ -321,6 +323,25 @@ export default function MatchPage() {
       setCandidates(res.candidates);
       setMatchId(res.match_id);
       setScanned(res.total_pool_searched ?? res.total_scanned ?? 0);
+      // auto-send outreach to all candidates immediately
+      if (res.candidates?.length && res.match_id) {
+        setAutoSending(true);
+        setAutoLog([]);
+        for (const c of res.candidates) {
+          setAutoLog(log => [...log, { rank: c.rank, name: c.user_id_hash_short.toUpperCase(), status: 'sending' }]);
+          setContactState(s => ({ ...s, [c.rank]: 'sending' }));
+          try {
+            await apiClient.post(`/outreach/${res.match_id}/contact/${c.rank}`);
+            setContactState(s => ({ ...s, [c.rank]: 'awaiting' }));
+            setAutoLog(log => log.map(l => l.rank === c.rank ? { ...l, status: 'sent' } : l));
+          } catch {
+            setContactState(s => ({ ...s, [c.rank]: 'idle' }));
+            setAutoLog(log => log.map(l => l.rank === c.rank ? { ...l, status: 'error' } : l));
+          }
+          await new Promise(r => setTimeout(r, 800));
+        }
+        setAutoSending(false);
+      }
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(msg ?? 'Failed to find donors. Check backend connection.');
@@ -486,11 +507,52 @@ export default function MatchPage() {
                     </div>
                     <h3 className="text-headline-md text-on-surface">Scanned {scanned.toLocaleString()} donors</h3>
                   </div>
-                  <div className="flex items-center gap-xs text-on-surface-variant bg-surface-variant px-sm py-xs rounded-full">
-                    <span className="material-symbols-outlined text-[16px]">filter_list</span>
-                    <span className="text-label-sm">Filtered by Score</span>
+                  <div className="flex items-center gap-sm">
+                    <div className="flex items-center gap-xs text-on-surface-variant bg-surface-variant px-sm py-xs rounded-full">
+                      <span className="material-symbols-outlined text-[16px]">filter_list</span>
+                      <span className="text-label-sm">Filtered by Score</span>
+                    </div>
+                    {autoSending && (
+                      <span className="flex items-center gap-xs px-md py-xs rounded-full text-white text-label-sm font-bold" style={{ background: '#25D366' }}>
+                        <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                        Sending messages…
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {autoLog.length > 0 && (
+                  <div className="mb-md rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden">
+                    <div className="px-md py-sm border-b border-outline-variant flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-[16px] text-primary">send</span>
+                      <span className="text-label-md font-bold text-on-surface">Auto Outreach Log</span>
+                      <span className="ml-auto text-label-sm text-on-surface-variant">{autoLog.filter(l => l.status === 'sent').length}/{autoLog.length} sent</span>
+                    </div>
+                    <div className="divide-y divide-outline-variant">
+                      {autoLog.map(l => (
+                        <div key={l.rank} className="flex items-center gap-sm px-md py-sm">
+                          <div className="w-6 h-6 rounded-full bg-surface-variant flex items-center justify-center text-[11px] font-bold text-on-surface-variant shrink-0">#{l.rank}</div>
+                          <span className="text-body-sm text-on-surface font-medium flex-1">{l.name}</span>
+                          {l.status === 'sending' && (
+                            <span className="flex items-center gap-xs text-label-sm text-amber-600">
+                              <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>Sending…
+                            </span>
+                          )}
+                          {l.status === 'sent' && (
+                            <span className="flex items-center gap-xs text-label-sm text-emerald-600 font-bold">
+                              <span className="material-symbols-outlined text-[14px] icon-fill">check_circle</span>WhatsApp sent
+                            </span>
+                          )}
+                          {l.status === 'error' && (
+                            <span className="flex items-center gap-xs text-label-sm text-error">
+                              <span className="material-symbols-outlined text-[14px]">error</span>Failed
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-md">
                   {candidates.map((c, idx) => {

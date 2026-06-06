@@ -15,3 +15,8 @@ twilio
 anthropic
 gremlinpython
 boto3
+pdf2image
+pymupdf
+Pillow
+pypdf
+openai

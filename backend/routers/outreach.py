@@ -123,6 +123,7 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": "ok"}
 
     # 2. Incoming donor reply
+    outcome_label = "delivery_ack"
     if body_text:
         upper = body_text.upper()
         if "YES" in upper or "CONFIRM" in upper or "DONATE" in upper:
@@ -138,28 +139,28 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
             response_enum = "QUESTION_LOGISTICS"
             outcome_label = "question"
 
-        # Find the most recent unresponded outreach_log entry sent from us
-        # (matched by twilio_sid if available, otherwise most recent pending for this match)
+        # Find the most recent unresponded outreach_log entry
         log_row = None
         if msg_sid:
             log_row = db.execute(text("""
-                SELECT id, sent_at FROM outreach_log
+                SELECT id, sent_at, match_request_id FROM outreach_log
                 WHERE message_template = :sid AND response IS NULL
                 LIMIT 1
             """), {"sid": msg_sid}).mappings().first()
 
         if not log_row:
-            # Fallback: most recent pending entry
             log_row = db.execute(text("""
-                SELECT id, sent_at FROM outreach_log
+                SELECT id, sent_at, match_request_id FROM outreach_log
                 WHERE response IS NULL
                 ORDER BY sent_at DESC
                 LIMIT 1
             """)).mappings().first()
 
+        match_id_for_ws = None
         if log_row:
             sent_at = log_row["sent_at"]
             latency = int((now - sent_at).total_seconds()) if sent_at else None
+            match_id_for_ws = str(log_row["match_request_id"]) if log_row.get("match_request_id") else None
             db.execute(text("""
                 UPDATE outreach_log
                 SET response = :resp,
@@ -175,7 +176,31 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
                 "id": str(log_row["id"]),
             })
 
-        # Log the raw incoming message for full audit
+            # If confirmed, update match_requests status
+            if response_enum == "CONFIRM" and match_id_for_ws:
+                db.execute(text("""
+                    UPDATE match_requests
+                    SET status = 'confirmed', confirmed_at = NOW()
+                    WHERE id::text = :mid AND status != 'confirmed'
+                """), {"mid": match_id_for_ws})
+
+            # Record in system_events for timeline
+            db.execute(text("""
+                INSERT INTO system_events (event_type, source_entity, source_entity_id, payload)
+                VALUES (:etype, 'match_request', :mid, :payload)
+            """), {
+                "etype": f"outreach.{outcome_label}",
+                "mid": match_id_for_ws,
+                "payload": json.dumps({
+                    "event_type": outcome_label,
+                    "from": from_number,
+                    "body": body_text,
+                    "sid": msg_sid,
+                    "parsed_response": response_enum,
+                }),
+            })
+
+        # Log raw incoming for audit
         db.execute(text("""
             INSERT INTO system_events (event_type, source_entity, payload)
             VALUES ('twilio.incoming_message', 'outreach_log', :payload)
@@ -192,13 +217,25 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
         except Exception:
             db.rollback()
 
-    # Twilio expects 200 with empty TwiML or plain text
-    return {"status": "ok", "parsed": outcome_label if body_text else "delivery_ack"}
+        # Broadcast real-time update via WebSocket
+        from backend.core.websocket_manager import manager
+        import asyncio
+        asyncio.create_task(manager.broadcast({
+            "type": "twilio_response",
+            "match_id": match_id_for_ws,
+            "response": response_enum,
+            "outcome": outcome_label,
+            "body": body_text,
+            "event_type": outcome_label,
+            "timestamp": now.isoformat(),
+        }))
+
+    return {"status": "ok", "parsed": outcome_label}
 
 
 @router.post("/{match_id}/contact/{rank}")
 def manual_contact(match_id: str, rank: int, db: Session = Depends(get_db)):
-    """Send a WhatsApp outreach message to a specific candidate and record the event."""
+    """Send WhatsApp to rank-1 candidate; simulate for all others (saves to audit log only)."""
     from backend.services.twilio_service import send_outreach_message
     from backend.config import settings
 
@@ -224,14 +261,17 @@ def manual_contact(match_id: str, rank: int, db: Session = Depends(get_db)):
             pass
 
     demo_to = settings.TWILIO_DEMO_TO_NUMBER.strip()
-    twilio_result = {"status": "skipped"}
-    if demo_to:
+    if rank == 1 and demo_to:
+        # Only rank-1 gets a real Twilio message
         twilio_result = send_outreach_message(
             to_number=demo_to,
             donor_name=donor_name,
             blood_group=blood_group,
             transfusion_date=transfusion_date,
         )
+    else:
+        # All other candidates: simulate — record in audit log but don't call Twilio
+        twilio_result = {"status": "simulated", "channel": "whatsapp", "sid": None}
 
     # Record in system_events
     payload = json.dumps({

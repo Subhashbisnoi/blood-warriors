@@ -85,16 +85,40 @@ export interface OutreachEvent {
   event_id: string;
   candidate_rank: number;
   user_hash: string;
-  event_type: 'whatsapp_sent' | 'confirmed' | 'declined' | 'no_response' | 'escalated';
+  event_type: 'whatsapp_sent' | 'confirmed' | 'declined' | 'no_response' | 'escalated' | 'followup_sent';
   timestamp: string;
 }
 
+export interface AuditLogEntry {
+  log_id: string;
+  donor_user_id: string | null;
+  channel: string;
+  message_body: string | null;
+  sent_at: string | null;
+  response: 'CONFIRM' | 'DECLINE' | 'OPT_OUT' | 'NO_RESPONSE' | 'QUESTION_LOGISTICS' | null;
+  response_text: string | null;
+  response_at: string | null;
+  response_latency_secs: number | null;
+  twilio_sid: string | null;
+}
+
+export interface OutreachCandidate {
+  donor_user_id: string | null;
+  rank: number;
+  kag_score: number | null;
+  tier: string | null;
+  outreach_status: string | null;
+  contacted_at: string | null;
+  distance_km: number | null;
+  explanation: string | null;
+}
+
 export interface OutreachSession {
-  session_id: string;
   match_id: string;
-  status: 'in_progress' | 'confirmed' | 'escalated';
-  confirmed_by?: string;
+  status: 'in_progress' | 'confirmed' | 'escalated' | 'pending' | string;
   events: OutreachEvent[];
+  audit_log: AuditLogEntry[];
+  candidates: OutreachCandidate[];
 }
 
 export interface ChatMessage {

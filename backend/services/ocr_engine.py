@@ -1,6 +1,6 @@
 """
 GPT-4o vision OCR engine for medical bill extraction.
-Handles PDF (via pdf2image) and images (PNG/JPG/TIFF).
+Handles PDF (via PyMuPDF) and images (PNG/JPG/TIFF).
 Returns rich structured JSON matching the frontend ReviewStep schema.
 """
 from __future__ import annotations
@@ -9,10 +9,14 @@ import asyncio
 import base64
 import io
 import json
+import logging
+import traceback
 import uuid
-from pathlib import Path
 
 from backend.config import settings
+
+logger = logging.getLogger("ocr_engine")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 _UUID_NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 _client = None
@@ -22,6 +26,7 @@ def _get_client():
     global _client
     if _client is None:
         from openai import AsyncOpenAI
+        logger.info("Initialising OpenAI client (key prefix: %s)", settings.OPENAI_API_KEY[:10] if settings.OPENAI_API_KEY else "MISSING")
         _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     return _client
 
@@ -76,6 +81,7 @@ def _encode_page(img, max_short: int = 1024) -> str:
 
 async def _call_vision(b64_pages: list[str], filename: str) -> dict:
     """Single GPT-4o call with all page images."""
+    logger.info("[vision] calling GPT-4o with %d page(s) for '%s'", len(b64_pages), filename)
     content: list[dict] = [
         {"type": "text", "text": f"Document: {filename}. Extract all bill/invoice data."},
     ]
@@ -94,7 +100,11 @@ async def _call_vision(b64_pages: list[str], filename: str) -> dict:
         response_format={"type": "json_object"},
         max_tokens=4096,
     )
-    return json.loads(resp.choices[0].message.content)
+    raw = resp.choices[0].message.content
+    logger.info("[vision] GPT-4o responded (%d chars)", len(raw))
+    result = json.loads(raw)
+    logger.info("[vision] parsed JSON keys: %s", list(result.keys()))
+    return result
 
 
 def bill_upload_id(filename: str) -> str:
@@ -104,21 +114,39 @@ def bill_upload_id(filename: str) -> str:
 
 async def process_pdf_async(pdf_bytes: bytes, filename: str, dpi: int = 200) -> dict:
     """PDF bytes → images (threadpool) → GPT-4o → structured JSON."""
+    logger.info("[pdf] processing '%s' (%d bytes)", filename, len(pdf_bytes))
     loop = asyncio.get_event_loop()
+
+    def _render_pages():
+        import fitz  # PyMuPDF
+        logger.info("[pdf] rendering with PyMuPDF (dpi=%d)", dpi)
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        logger.info("[pdf] opened PDF: %d page(s)", len(doc))
+        images = []
+        mat = fitz.Matrix(dpi / 72, dpi / 72)
+        for i, page in enumerate(doc):
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            from PIL import Image
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            logger.info("[pdf] page %d rendered: %dx%d", i + 1, img.width, img.height)
+            images.append(img)
+        return images
+
     try:
-        from pdf2image import convert_from_bytes
-        pages = await loop.run_in_executor(
-            None,
-            lambda: convert_from_bytes(pdf_bytes, dpi=dpi),
-        )
+        pages = await loop.run_in_executor(None, _render_pages)
+        logger.info("[pdf] rendered %d page(s), encoding for GPT-4o", len(pages))
         b64_pages = [_encode_page(pg) for pg in pages[:20]]
-    except Exception:
-        # pdf2image/poppler unavailable — extract text layer via pypdf
+        logger.info("[pdf] encoded %d page(s)", len(b64_pages))
+    except Exception as e:
+        logger.error("[pdf] PyMuPDF render failed: %s\n%s", e, traceback.format_exc())
+        logger.info("[pdf] falling back to pypdf text extraction")
         try:
             import pypdf
             reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
             text = "\n".join(page.extract_text() or "" for page in reader.pages[:20])
-        except Exception:
+            logger.info("[pdf] pypdf extracted %d chars of text", len(text))
+        except Exception as e2:
+            logger.error("[pdf] pypdf also failed: %s", e2)
             text = f"[Could not extract text from {filename}]"
         result = await _call_text_ocr(text, filename)
         result["_source_file"] = filename
@@ -128,11 +156,14 @@ async def process_pdf_async(pdf_bytes: bytes, filename: str, dpi: int = 200) -> 
     result = await _call_vision(b64_pages, filename)
     result["_source_file"] = filename
     result["_upload_id"] = bill_upload_id(filename)
+    logger.info("[pdf] done — vendor='%s' total=%s invoice_number='%s'",
+                (result.get("vendor") or {}).get("name", ""), result.get("total_amount"), result.get("invoice_number"))
     return result
 
 
 async def _call_text_ocr(text: str, filename: str) -> dict:
     """Extract structured data from plain text (PDF text layer fallback)."""
+    logger.info("[text_ocr] calling GPT-4o with %d chars of text for '%s'", len(text), filename)
     resp = await _get_client().chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -143,14 +174,20 @@ async def _call_text_ocr(text: str, filename: str) -> dict:
         response_format={"type": "json_object"},
         max_tokens=4096,
     )
-    return json.loads(resp.choices[0].message.content)
+    raw = resp.choices[0].message.content
+    logger.info("[text_ocr] GPT-4o responded (%d chars)", len(raw))
+    result = json.loads(raw)
+    logger.info("[text_ocr] parsed — vendor='%s' total=%s", (result.get("vendor") or {}).get("name", ""), result.get("total_amount"))
+    return result
 
 
 async def process_image_async(image_bytes: bytes, filename: str, mime: str = "image/jpeg") -> dict:
     """Image bytes → GPT-4o → structured JSON."""
+    logger.info("[image] processing '%s' (%d bytes, mime=%s)", filename, len(image_bytes), mime)
     from PIL import Image
     loop = asyncio.get_event_loop()
     img = await loop.run_in_executor(None, lambda: Image.open(io.BytesIO(image_bytes)))
+    logger.info("[image] opened: %dx%d", img.width, img.height)
     b64 = _encode_page(img)
     result = await _call_vision([b64], filename)
     result["_source_file"] = filename
@@ -160,6 +197,7 @@ async def process_image_async(image_bytes: bytes, filename: str, mime: str = "im
 
 async def process_file_async(file_bytes: bytes, filename: str, mime: str) -> dict:
     """Route to PDF or image processor based on MIME type."""
+    logger.info("[ocr] process_file_async: filename='%s' mime='%s' size=%d bytes", filename, mime, len(file_bytes))
     if "pdf" in mime.lower() or filename.lower().endswith(".pdf"):
         return await process_pdf_async(file_bytes, filename)
     return await process_image_async(file_bytes, filename, mime)

@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 import json
@@ -13,6 +14,7 @@ from backend.database import get_db
 from backend.config import settings
 from backend.services.ocr_engine import process_file_async
 
+logger = logging.getLogger("bills_router")
 router = APIRouter(prefix="/api/bills", tags=["bills"])
 
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
@@ -36,17 +38,27 @@ _EMPTY_OCR = {
 @router.post("/ocr")
 async def ocr_receipt(file: UploadFile = File(...)):
     """Run GPT-4o vision OCR on a medical bill image or PDF."""
+    logger.info("[ocr] request received: filename='%s' content_type='%s'", file.filename, file.content_type)
+
     if not settings.OPENAI_API_KEY:
+        logger.warning("[ocr] OPENAI_API_KEY is not set — returning empty OCR")
         return _EMPTY_OCR
 
+    logger.info("[ocr] API key present (prefix: %s), proceeding", settings.OPENAI_API_KEY[:10])
     file_bytes = await file.read()
     filename = file.filename or "upload"
     mime = file.content_type or "application/octet-stream"
+    logger.info("[ocr] file read: %d bytes, mime='%s'", len(file_bytes), mime)
 
     try:
         result = await process_file_async(file_bytes, filename, mime)
+        logger.info("[ocr] extraction complete — vendor='%s' total=%s items=%d",
+                    (result.get("vendor") or {}).get("name", ""), result.get("total_amount"),
+                    len(result.get("line_items") or []))
         return result
     except Exception as e:
+        import traceback
+        logger.error("[ocr] extraction failed: %s\n%s", e, traceback.format_exc())
         return {**_EMPTY_OCR, "_ocr_error": str(e)}
 
 
