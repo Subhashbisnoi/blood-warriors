@@ -272,7 +272,7 @@ const PdfViewer = memo(function PdfViewer({
   return (
     <div className="bm__pdfbody" ref={pdfRef}>
       <Document
-        file={`${API_BASE}/api/docs/${uploadId}`}
+        file={`${API_BASE}/docs/${uploadId}`}
         onLoadSuccess={({ numPages }) => onLoaded(numPages)}
         onLoadError={onError}
         loading={<div style={{ color: '#9ca3af', fontSize: 13, marginTop: 60, textAlign: 'center' }}>Loading PDF…</div>}
@@ -372,7 +372,7 @@ function BillModal({ bill, origin, cachedDetail, onClose, onRefresh }: {
         fd.append('file', file)
         fd.append('uploaded_by', user?.name ?? '')
         fd.append('company_id', user?.company_id ?? '')
-        await fetch(`${API_BASE}/api/bills/${bill.invoice_id}/attachments`, { method: 'POST', body: fd })
+        await fetch(`${API_BASE}/bills/${bill.invoice_id}/attachments`, { method: 'POST', body: fd })
       }
       reload()
     } finally {
@@ -382,7 +382,7 @@ function BillModal({ bill, origin, cachedDetail, onClose, onRefresh }: {
   }
 
   const handleAttachDelete = async (attachmentId: string) => {
-    await fetch(`${API_BASE}/api/bills/${bill.invoice_id}/attachments/${attachmentId}`, { method: 'DELETE' })
+    await fetch(`${API_BASE}/bills/${bill.invoice_id}/attachments/${attachmentId}`, { method: 'DELETE' })
     reload()
   }
 
@@ -822,7 +822,7 @@ function BillModal({ bill, origin, cachedDetail, onClose, onRefresh }: {
                       <div className="bm__attach-empty">No attachments yet</div>
                     )}
                     {(detail.attachments ?? []).map((a: BillAttachment) => {
-                      const url = `${API_BASE}/api/bills/${bill.invoice_id}/attachments/${a.id}/download`
+                      const url = `${API_BASE}/bills/${bill.invoice_id}/attachments/${a.id}/download`
                       const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(a.file_name)
                       return (
                         <div key={a.id} className="bm__attach-row">

@@ -89,8 +89,8 @@ export async function ocrInvoice(file: File): Promise<InvoicePayload> {
   }
   const form = new FormData()
   form.append('file', file)
-  // blood-warriors uses /api/bills/ocr instead of /api/invoices/ocr
-  const { data } = await axios.post<InvoicePayload>('/api/bills/ocr', form, {
+  // blood-warriors uses /bills/ocr instead of /api/invoices/ocr
+  const { data } = await axios.post<InvoicePayload>('/bills/ocr', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   cacheSet(hash, data)
@@ -100,7 +100,7 @@ export async function ocrInvoice(file: File): Promise<InvoicePayload> {
 export async function ocrInvoiceBulk(files: File[]): Promise<InvoicePayload[]> {
   const form = new FormData()
   for (const f of files) form.append('files', f)
-  const { data } = await axios.post<{ results: InvoicePayload[] }>('/api/bills/ocr-bulk', form, {
+  const { data } = await axios.post<{ results: InvoicePayload[] }>('/bills/ocr-bulk', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data.results
@@ -119,7 +119,7 @@ export interface IngestResult {
 }
 
 export async function ingestInvoice(payload: InvoicePayload, companyId?: string): Promise<IngestResult> {
-  const { data } = await axios.post<IngestResult>('/api/bills/ingest', { payload, company_id: companyId ?? null })
+  const { data } = await axios.post<IngestResult>('/bills/ingest', { payload, company_id: companyId ?? null })
   return data
 }
 
@@ -207,7 +207,7 @@ export async function createVendor(payload: {
   name_at_bank?: string
   bank_warning?: string
 }> {
-  const { data } = await axios.post('/api/vendors', payload)
+  const { data } = await axios.post('/vendors', payload)
   return data
 }
 
@@ -217,7 +217,7 @@ export async function bulkCreateVendorsExcel(file: File, companyId?: string): Pr
   const form = new FormData()
   form.append('file', file)
   const params = companyId ? { company_id: companyId } : {}
-  const { data } = await axios.post('/api/vendors/bulk-excel', form, {
+  const { data } = await axios.post('/vendors/bulk-excel', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     params,
   })
@@ -227,7 +227,7 @@ export async function bulkCreateVendorsExcel(file: File, companyId?: string): Pr
 export async function fetchVendors(forceRefresh = false, companyId?: string, onBackground?: (v: Vendor[]) => void): Promise<Vendor[]> {
   const params = companyId ? { company_id: companyId } : {}
   const doFetch = async () => {
-    const { data } = await axios.get<{ vendors: Vendor[]; total: number }>('/api/vendors', { params })
+    const { data } = await axios.get<{ vendors: Vendor[]; total: number }>('/vendors', { params })
     vendorsCacheSet(data.vendors, companyId)
     return data.vendors
   }
@@ -246,7 +246,7 @@ export async function requestVendorInfo(supplierId: string, payload: {
   email_to?: string
   company_id?: string
 }): Promise<{ status: string; email_to: string; subject: string; body: string }> {
-  const { data } = await axios.post(`/api/vendors/${supplierId}/request-info`, payload)
+  const { data } = await axios.post(`/vendors/${supplierId}/request-info`, payload)
   return data
 }
 
@@ -263,23 +263,23 @@ export interface BankAccount {
 
 export async function fetchVendorBankAccounts(supplierId: string, companyId?: string): Promise<BankAccount[]> {
   const params = companyId ? { company_id: companyId } : {}
-  const { data } = await axios.get(`/api/vendors/${supplierId}/bank-accounts`, { params })
+  const { data } = await axios.get(`/vendors/${supplierId}/bank-accounts`, { params })
   return data
 }
 
 export async function addVendorBankAccount(supplierId: string, body: { account_number: string; ifsc?: string; bank_name?: string; is_primary?: boolean; company_id?: string }): Promise<BankAccount> {
-  const { data } = await axios.post(`/api/vendors/${supplierId}/bank-accounts`, body)
+  const { data } = await axios.post(`/vendors/${supplierId}/bank-accounts`, body)
   return data
 }
 
 export async function deleteVendorBankAccount(supplierId: string, accountId: string, companyId?: string): Promise<void> {
   const params = companyId ? { company_id: companyId } : {}
-  await axios.delete(`/api/vendors/${supplierId}/bank-accounts/${accountId}`, { params })
+  await axios.delete(`/vendors/${supplierId}/bank-accounts/${accountId}`, { params })
 }
 
 export async function setPrimaryBankAccount(supplierId: string, accountId: string, companyId?: string): Promise<BankAccount[]> {
   const params = companyId ? { company_id: companyId } : {}
-  const { data } = await axios.post(`/api/vendors/${supplierId}/bank-accounts/${accountId}/set-primary`, null, { params })
+  const { data } = await axios.post(`/vendors/${supplierId}/bank-accounts/${accountId}/set-primary`, null, { params })
   return data
 }
 
@@ -287,7 +287,7 @@ export async function fetchVendorOutreach(supplierId: string, companyId?: string
   logs: { id: string; requested_by: string; requested_at: string | null; email_to: string | null; subject: string | null; status: string }[]
 }> {
   const params = companyId ? { company_id: companyId } : {}
-  const { data } = await axios.get(`/api/vendors/${supplierId}/outreach`, { params })
+  const { data } = await axios.get(`/vendors/${supplierId}/outreach`, { params })
   return data
 }
 
@@ -462,7 +462,7 @@ export function invalidateDetailCache(invoiceId?: string): void {
 export async function fetchBillDetail(invoiceId: string): Promise<BillDetail> {
   const cached = detailCacheGet(invoiceId)
   if (cached) return cached
-  const { data } = await axios.get<BillDetail>(`/api/bills/${invoiceId}`)
+  const { data } = await axios.get<BillDetail>(`/bills/${invoiceId}`)
   detailCacheSet(invoiceId, data)
   return data
 }
@@ -475,14 +475,14 @@ export async function billAction(invoiceId: string, payload: {
 }): Promise<{ status: string }> {
   invalidateDetailCache(invoiceId)
   invalidateBillsCache()
-  const { data } = await axios.post<{ status: string }>(`/api/bills/${invoiceId}/action`, payload)
+  const { data } = await axios.post<{ status: string }>(`/bills/${invoiceId}/action`, payload)
   return data
 }
 
 export async function updateBill(invoiceId: string, updates: Record<string, unknown>): Promise<void> {
   invalidateDetailCache(invoiceId)
   // best-effort update — blood-warriors backend may not support all fields
-  await axios.put(`/api/bills/${invoiceId}`, updates).catch(() => {})
+  await axios.put(`/bills/${invoiceId}`, updates).catch(() => {})
 }
 
 export async function updatePaymentStatus(
@@ -504,7 +504,7 @@ export async function fetchBills(forceRefresh = false, companyId?: string, onBac
   if (role) params.role = role
   if (username) params.username = username
   const doFetch = async () => {
-    const { data } = await axios.get<Bill[] | { bills: Bill[]; total: number }>('/api/bills', { params })
+    const { data } = await axios.get<Bill[] | { bills: Bill[]; total: number }>('/bills', { params })
     const bills = Array.isArray(data) ? data : (data as { bills: Bill[] }).bills ?? []
     billsCacheSet(bills, companyId, role)
     return bills
@@ -547,7 +547,7 @@ export async function fetchDepartments(_companyId?: string): Promise<string[]> {
 export async function fetchUserDepartments(username: string, companyId?: string): Promise<string[]> {
   const params: Record<string, string> = { username }
   if (companyId) params.company_id = companyId
-  const { data } = await axios.get<{ departments: string[] }>('/api/settings/user-departments', { params })
+  const { data } = await axios.get<{ departments: string[] }>('/settings/user-departments', { params })
   return data.departments
 }
 
@@ -573,14 +573,14 @@ export async function fetchUsers(companyId?: string, department?: string): Promi
   const params: Record<string, string> = {}
   if (companyId) params.company_id = companyId
   if (department) params.department = department
-  const { data } = await axios.get<{ users: CompanyUser[] }>('/api/users', { params })
+  const { data } = await axios.get<{ users: CompanyUser[] }>('/users', { params })
   return data.users
 }
 
 export async function createUser(payload: {
   username: string; password: string; role: string; name: string; email: string; department?: string; company_id?: string
 }): Promise<void> {
-  await axios.post('/api/users', payload)
+  await axios.post('/users', payload)
 }
 
 export async function updateUser(username: string, payload: {
@@ -588,13 +588,13 @@ export async function updateUser(username: string, payload: {
 }, companyId?: string): Promise<void> {
   const params: Record<string, string> = {}
   if (companyId) params.company_id = companyId
-  await axios.put(`/api/users/${username}`, payload, { params })
+  await axios.put(`/users/${username}`, payload, { params })
 }
 
 export async function deleteUser(username: string, companyId?: string): Promise<void> {
   const params: Record<string, string> = {}
   if (companyId) params.company_id = companyId
-  await axios.delete(`/api/users/${username}`, { params })
+  await axios.delete(`/users/${username}`, { params })
 }
 
 export interface BulkActionResult {
@@ -613,7 +613,7 @@ export async function bulkBillAction(payload: {
   options?: { payment_date?: string; payment_method?: string }
 }): Promise<{ results: BulkActionResult[]; succeeded: number; failed: number; total: number }> {
   invalidateBillsCache()
-  const { data } = await axios.post('/api/bills/bulk-action', payload)
+  const { data } = await axios.post('/bills/bulk-action', payload)
   return data
 }
 
