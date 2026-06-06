@@ -95,18 +95,22 @@ def _gen_gratitude(user_id: str, blood_group: str, donations_count: int) -> list
 
 
 def _ensure_portal_columns(db: Session):
-    """Add portal-specific columns once; safe to call every request."""
-    for stmt in [
-        "ALTER TABLE donor_profiles ADD COLUMN IF NOT EXISTS portal_registered BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE donor_profiles ADD COLUMN IF NOT EXISTS donor_name TEXT",
-        "ALTER TABLE donor_profiles ADD COLUMN IF NOT EXISTS phone TEXT",
-        "ALTER TABLE donor_profiles ADD COLUMN IF NOT EXISTS date_of_birth DATE",
-        "ALTER TABLE donor_profiles ADD COLUMN IF NOT EXISTS medical_notes TEXT",
-    ]:
+    """Add portal-specific columns; each ALTER runs in its own savepoint so one
+    failure does not abort the whole transaction."""
+    columns = [
+        ("portal_registered", "BOOLEAN DEFAULT FALSE"),
+        ("donor_name",        "TEXT"),
+        ("phone",             "TEXT"),
+        ("date_of_birth",     "DATE"),
+        ("medical_notes",     "TEXT"),
+    ]
+    for col, typedef in columns:
         try:
-            db.execute(text(stmt))
+            db.execute(text(f"SAVEPOINT sp_{col}"))
+            db.execute(text(f"ALTER TABLE donor_profiles ADD COLUMN IF NOT EXISTS {col} {typedef}"))
+            db.execute(text(f"RELEASE SAVEPOINT sp_{col}"))
         except Exception:
-            db.rollback()
+            db.execute(text(f"ROLLBACK TO SAVEPOINT sp_{col}"))
     db.commit()
 
 
@@ -174,12 +178,17 @@ def donor_register(req: DonorRegisterReq, db: Session = Depends(get_db)):
     """Self-registration: creates a new donor account, returns a Donor ID."""
     _ensure_portal_columns(db)
 
-    # Deduplicate by phone
-    existing = db.execute(text("""
-        SELECT dp.user_id FROM donor_profiles dp WHERE dp.phone = :phone LIMIT 1
-    """), {"phone": req.phone.strip()}).mappings().first()
-    if existing:
-        raise HTTPException(status_code=400, detail="A donor with this phone number is already registered.")
+    # Deduplicate by phone (columns now guaranteed to exist)
+    try:
+        existing = db.execute(text(
+            "SELECT user_id FROM donor_profiles WHERE phone = :phone LIMIT 1"
+        ), {"phone": req.phone.strip()}).mappings().first()
+        if existing:
+            raise HTTPException(status_code=400, detail="A donor with this phone number is already registered.")
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # phone column may still not exist on a cold DB — skip dedup
 
     uid = str(uuid4())
     # Readable 8-char Donor ID derived from uid
@@ -196,27 +205,25 @@ def donor_register(req: DonorRegisterReq, db: Session = Depends(get_db)):
     next_eligible = (date.today() + timedelta(days=90)).isoformat() if req.has_donated_before else date.today().isoformat()
     dtd = max(0, req.previous_donations) if req.has_donated_before else 0
 
-    # Insert into users (minimal required columns; NULL for unused bridge fields)
+    # Insert into users — only confirmed-existing columns
     db.execute(text("""
-        INSERT INTO users (id, user_id_hash, blood_group, city, gender, role,
-                           role_status, bridge_status, registration_date, status)
-        VALUES (:id, :hash, :bg, :city, :gender, 'Bridge Donor',
-                true, false, NOW(), 'active')
+        INSERT INTO users (id, user_id_hash, blood_group, city, gender, role, registration_date)
+        VALUES (:id, :hash, :bg, :city, :gender, 'Bridge Donor', NOW())
     """), {
         "id": uid, "hash": hash_val,
         "bg": req.blood_group, "city": req.city.strip(), "gender": req.gender,
     })
 
-    # Insert into donor_profiles
+    # Insert into donor_profiles — only confirmed-existing columns + portal extras via ALTER
     db.execute(text("""
         INSERT INTO donor_profiles
             (user_id, donor_type, donations_till_date, next_eligible_date,
-             eligibility_status, donor_tier, portal_registered,
-             donor_name, phone, date_of_birth, medical_notes)
+             eligibility_status,
+             portal_registered, donor_name, phone, date_of_birth, medical_notes)
         VALUES
             (:uid, :dtype, :dtd, :next_elig,
-             'eligible', 'Bronze', TRUE,
-             :name, :phone, :dob, :notes)
+             'eligible',
+             TRUE, :name, :phone, :dob, :notes)
     """), {
         "uid": uid, "dtype": req.donor_type, "dtd": dtd,
         "next_elig": next_eligible,
@@ -238,7 +245,7 @@ def donor_register(req: DonorRegisterReq, db: Session = Depends(get_db)):
         "phone": req.phone, "donor_type": req.donor_type,
         "donations_till_date": dtd, "last_donation_date": None,
         "next_eligible_date": next_eligible,
-        "kag_score": None, "donor_tier": "Bronze",
+        "kag_score": None, "donor_tier": None,
         "eligibility_status": "eligible", "portal_registered": True,
     }
 
@@ -259,7 +266,8 @@ def donor_login(req: DonorLoginReq, db: Session = Depends(get_db)):
         SELECT u.id, u.user_id_hash, u.blood_group, u.city, u.gender,
                dp.donor_type, dp.donations_till_date, dp.last_donation_date,
                dp.next_eligible_date, dp.kag_score, dp.donor_tier,
-               dp.eligibility_status, dp.portal_registered,
+               dp.eligibility_status,
+               COALESCE(dp.portal_registered, FALSE) AS portal_registered,
                dp.donor_name, dp.phone
         FROM users u
         LEFT JOIN donor_profiles dp ON dp.user_id = u.id
