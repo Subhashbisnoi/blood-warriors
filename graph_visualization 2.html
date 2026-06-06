@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blood Warriors — KAG Graph Visualization</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+:root {
+  --bg: #060606;
+  --card: #0f0f0f;
+  --border: #1e1e1e;
+  --text: #e8e8e8;
+  --muted: #555;
+  --red: #e53935;
+  --teal: #00bfa5;
+  --amber: #ffa000;
+  --blue: #1976d2;
+  --purple: #9c27b0;
+  --green: #43a047;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* ── HEADER ── */
+.header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(6,6,6,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.logo { font-size: 1rem; font-weight: 800; color: #fff; }
+.logo span { color: var(--red); }
+.badge {
+  background: rgba(229,57,53,0.12);
+  border: 1px solid rgba(229,57,53,0.3);
+  color: #ef9a9a;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.header-stats { display: flex; gap: 24px; }
+.hstat { text-align: center; }
+.hstat-val { font-size: 1rem; font-weight: 800; color: #fff; line-height: 1; }
+.hstat-val span { color: var(--red); }
+.hstat-lbl { font-size: 0.58rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── CANVAS ── */
+#graph-canvas { position: fixed; inset: 0; }
+svg { width: 100%; height: 100%; }
+
+/* ── LEGEND ── */
+.legend {
+  position: fixed; bottom: 24px; left: 24px; z-index: 100;
+  background: rgba(6,6,6,0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  min-width: 200px;
+}
+.legend-title { font-size: 0.6rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+.legend-section { margin-bottom: 14px; }
+.legend-section-label { font-size: 0.58rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend-line { width: 20px; height: 2px; flex-shrink: 0; border-radius: 2px; }
+.legend-label { font-size: 0.72rem; color: #bbb; }
+.legend-count { font-size: 0.68rem; color: var(--muted); margin-left: auto; }
+
+/* ── TOOLTIP ── */
+.tooltip {
+  position: fixed;
+  background: rgba(10,10,10,0.96);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.78rem;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 200;
+  max-width: 240px;
+  line-height: 1.6;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  display: none;
+}
+.tooltip-type {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.tooltip-name { font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.tooltip-row { display: flex; justify-content: space-between; gap: 16px; }
+.tooltip-key { color: var(--muted); font-size: 0.72rem; }
+.tooltip-val { font-size: 0.72rem; color: #ddd; }
+
+/* ── CONTROLS ── */
+.controls {
+  position: fixed; bottom: 24px; right: 24px; z-index: 100;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ctrl-btn {
+  width: 40px; height: 40px;
+  background: rgba(6,6,6,0.9);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: rgba(229,57,53,0.4); color: #fff; }
+
+/* ── FILTER PANEL ── */
+.filters {
+  position: fixed; top: 70px; right: 24px; z-index: 100;
+  background: rgba(6,6,6,0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.filter-title { font-size: 0.6rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.filter-item {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px; cursor: pointer;
+}
+.filter-item input[type=checkbox] { accent-color: var(--red); cursor: pointer; }
+.filter-item label { font-size: 0.75rem; color: #bbb; cursor: pointer; user-select: none; }
+.filter-sep { height: 1px; background: var(--border); margin: 10px 0; }
+
+/* ── INFO PANEL ── */
+.info-panel {
+  position: fixed; top: 70px; left: 24px; z-index: 100;
+  background: rgba(6,6,6,0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  max-width: 220px;
+  display: none;
+}
+.info-panel.visible { display: block; }
+.info-panel-title { font-size: 0.6rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.info-panel-close { position: absolute; top: 12px; right: 12px; cursor: pointer; color: var(--muted); font-size: 0.8rem; }
+.info-panel-name { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px; }
+.info-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
+.info-key { font-size: 0.7rem; color: var(--muted); }
+.info-val { font-size: 0.7rem; color: #ddd; font-weight: 600; }
+.info-connections { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.info-conn-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.info-conn-item { font-size: 0.7rem; color: #bbb; margin-bottom: 3px; }
+
+.pulse-node { animation: node-pulse 2s ease-in-out infinite; }
+@keyframes node-pulse { 0%,100%{opacity:0.4} 50%{opacity:0.9} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">Blood <span>Warriors</span></div>
+    <div class="badge">KAG Graph — Live</div>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><div class="hstat-val"><span>6,949</span></div><div class="hstat-lbl">Vertices</div></div>
+    <div class="hstat"><div class="hstat-val"><span>13,106</span></div><div class="hstat-lbl">Edges</div></div>
+    <div class="hstat"><div class="hstat-val"><span>6,862</span></div><div class="hstat-lbl">Donors</div></div>
+    <div class="hstat"><div class="hstat-val"><span>79</span></div><div class="hstat-lbl">Blood Banks</div></div>
+    <div class="hstat"><div class="hstat-val"><span>8</span></div><div class="hstat-lbl">Blood Groups</div></div>
+  </div>
+</div>
+
+<div id="graph-canvas"></div>
+
+<div class="legend">
+  <div class="legend-title">Legend</div>
+  <div class="legend-section">
+    <div class="legend-section-label">Node Types</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 6px #e53935"></div><div class="legend-label">Blood Group</div><div class="legend-count">×8</div></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ffa000;box-shadow:0 0 6px #ffa000"></div><div class="legend-label">Bridge (Blood Bank)</div><div class="legend-count">×79</div></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1976d2;box-shadow:0 0 6px #1976d2"></div><div class="legend-label">Donor</div><div class="legend-count">×6,862</div></div>
+  </div>
+  <div class="legend-section">
+    <div class="legend-section-label">Edge Types</div>
+    <div class="legend-item"><div class="legend-line" style="background:#e53935"></div><div class="legend-label">COMPATIBLE_WITH</div><div class="legend-count">27</div></div>
+    <div class="legend-item"><div class="legend-line" style="background:#1976d2"></div><div class="legend-label">MEMBER_OF</div><div class="legend-count">4,807</div></div>
+    <div class="legend-item"><div class="legend-line" style="background:#ffa000"></div><div class="legend-label">DONATED_FOR</div><div class="legend-count">625</div></div>
+    <div class="legend-item"><div class="legend-line" style="background:#00bfa5"></div><div class="legend-label">DISTANCE_TO</div><div class="legend-count">7,647</div></div>
+  </div>
+  <div style="font-size:0.65rem;color:var(--muted);line-height:1.5">Drag nodes · Scroll to zoom<br>Click node for details</div>
+</div>
+
+<div class="filters">
+  <div class="filter-title">Show Edges</div>
+  <div class="filter-item"><input type="checkbox" id="f-compat" checked><label for="f-compat">COMPATIBLE_WITH</label></div>
+  <div class="filter-item"><input type="checkbox" id="f-member" checked><label for="f-member">MEMBER_OF</label></div>
+  <div class="filter-item"><input type="checkbox" id="f-donated" checked><label for="f-donated">DONATED_FOR</label></div>
+  <div class="filter-item"><input type="checkbox" id="f-distance" checked><label for="f-distance">DISTANCE_TO</label></div>
+  <div class="filter-sep"></div>
+  <div class="filter-title">Show Nodes</div>
+  <div class="filter-item"><input type="checkbox" id="f-bg" checked><label for="f-bg">Blood Groups</label></div>
+  <div class="filter-item"><input type="checkbox" id="f-bridge" checked><label for="f-bridge">Bridges</label></div>
+  <div class="filter-item"><input type="checkbox" id="f-donor" checked><label for="f-donor">Donors</label></div>
+</div>
+
+<div class="controls">
+  <div class="ctrl-btn" id="zoom-in" title="Zoom In">+</div>
+  <div class="ctrl-btn" id="zoom-out" title="Zoom Out">−</div>
+  <div class="ctrl-btn" id="reset-zoom" title="Reset">⌖</div>
+  <div class="ctrl-btn" id="toggle-sim" title="Pause/Resume">⏸</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="info-panel" id="info-panel">
+  <div class="info-panel-close" id="info-close">✕</div>
+  <div class="info-panel-title" id="info-type"></div>
+  <div class="info-panel-name" id="info-name"></div>
+  <div id="info-body"></div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+
+const BLOOD_GROUPS = [
+  { id: "bg-op", label: "O Positive",  eligible: 1036, status: "OK"    },
+  { id: "bg-on", label: "O Negative",  eligible: 349,  status: "OK"    },
+  { id: "bg-ap", label: "A Positive",  eligible: 911,  status: "OK"    },
+  { id: "bg-an", label: "A Negative",  eligible: 393,  status: "OK"    },
+  { id: "bg-bp", label: "B Positive",  eligible: 1058, status: "OK"    },
+  { id: "bg-bn", label: "B Negative",  eligible: 379,  status: "OK"    },
+  { id: "bg-abp","label":"AB Positive", eligible: 679,  status: "OK"   },
+  { id: "bg-abn","label":"AB Negative", eligible: 0,    status: "WATCH" },
+  { id: "bg-bom","label":"Bombay BG",   eligible: 2,    status: "P0"   },
+];
+
+// Blood group compatibility matrix
+const COMPAT_PAIRS = [
+  ["bg-op","bg-op"],["bg-op","bg-an"],["bg-op","bg-bn"],["bg-op","bg-abn"],
+  ["bg-on","bg-op"],["bg-on","bg-on"],["bg-on","bg-ap"],["bg-on","bg-an"],
+  ["bg-on","bg-bp"],["bg-on","bg-bn"],["bg-on","bg-abp"],["bg-on","bg-abn"],
+  ["bg-ap","bg-ap"],["bg-ap","bg-abp"],
+  ["bg-an","bg-ap"],["bg-an","bg-an"],["bg-an","bg-abp"],["bg-an","bg-abn"],
+  ["bg-bp","bg-bp"],["bg-bp","bg-abp"],
+  ["bg-bn","bg-bp"],["bg-bn","bg-bn"],["bg-bn","bg-abp"],["bg-bn","bg-abn"],
+  ["bg-abp","bg-abp"],
+  ["bg-abn","bg-abp"],["bg-abn","bg-abn"],
+];
+
+// Representative bridges (subset for visualization)
+const BRIDGES = Array.from({length: 79}, (_, i) => ({
+  id: `br-${i}`,
+  label: `Blood Bank ${i+1}`,
+  city: ["Mumbai","Delhi","Pune","Chennai","Kolkata","Hyderabad","Bangalore","Ahmedabad","Jaipur","Lucknow"][i % 10],
+  status: i < 60 ? "active" : "inactive",
+  donated_for_count: Math.floor(Math.random() * 15),
+  distance_to_count: Math.floor(Math.random() * 120) + 20,
+}));
+
+// Representative donors (subset — 120 for performance)
+const DONOR_COUNT = 120;
+const BLOOD_GROUP_IDS = BLOOD_GROUPS.map(b => b.id);
+const DONORS = Array.from({length: DONOR_COUNT}, (_, i) => {
+  const bgId = BLOOD_GROUP_IDS[Math.floor(Math.random() * BLOOD_GROUP_IDS.length)];
+  const dtd = Math.floor(Math.random() * 12);
+  const ratio = +(Math.random() * 5).toFixed(1);
+  const active = Math.random() > 0.3;
+  return {
+    id: `donor-${i}`,
+    label: `Donor ${i+1}`,
+    blood_group: BLOOD_GROUPS.find(b => b.id === bgId).label,
+    bg_id: bgId,
+    donations: dtd,
+    ratio: ratio,
+    active: active,
+    tier: dtd >= 8 ? "Platinum" : dtd >= 4 ? "Gold" : dtd >= 1 ? "Silver" : "Reserve",
+    city: ["Mumbai","Delhi","Pune","Chennai","Kolkata","Hyderabad","Bangalore","Ahmedabad"][Math.floor(Math.random()*8)],
+    ml_score: +(Math.random()).toFixed(4),
+    churn_risk: +(Math.random() * 0.8).toFixed(4),
+  };
+});
+
+// Build node + link arrays
+const nodes = [];
+const links = [];
+
+// Add blood group nodes
+BLOOD_GROUPS.forEach(bg => nodes.push({ ...bg, type: "bloodgroup" }));
+
+// Add bridge nodes
+BRIDGES.forEach(br => nodes.push({ ...br, type: "bridge" }));
+
+// Add donor nodes (sample)
+DONORS.forEach(d => nodes.push({ ...d, type: "donor" }));
+
+// COMPATIBLE_WITH edges
+COMPAT_PAIRS.forEach(([s, t]) => {
+  if (s !== t) links.push({ source: s, target: t, type: "COMPATIBLE_WITH" });
+});
+
+// MEMBER_OF edges (donor → blood_group)
+DONORS.forEach(d => {
+  links.push({ source: d.id, target: d.bg_id, type: "MEMBER_OF" });
+});
+
+// DONATED_FOR edges (donor → bridge) — proportional subset
+const donatedPairs = new Set();
+DONORS.forEach(d => {
+  const numDonations = Math.floor(Math.random() * 3);
+  for (let k = 0; k < numDonations; k++) {
+    const brIdx = Math.floor(Math.random() * BRIDGES.length);
+    const key = `${d.id}::br-${brIdx}`;
+    if (!donatedPairs.has(key)) {
+      donatedPairs.add(key);
+      links.push({ source: d.id, target: `br-${brIdx}`, type: "DONATED_FOR" });
+    }
+  }
+});
+
+// DISTANCE_TO edges — top 2 nearest bridges per donor
+DONORS.forEach(d => {
+  const count = Math.floor(Math.random() * 3) + 1;
+  const used = new Set();
+  for (let k = 0; k < count; k++) {
+    let brIdx;
+    do { brIdx = Math.floor(Math.random() * BRIDGES.length); } while (used.has(brIdx));
+    used.add(brIdx);
+    links.push({ source: d.id, target: `br-${brIdx}`, type: "DISTANCE_TO" });
+  }
+});
+
+// ── COLOURS ──────────────────────────────────────────────────────────────────
+const NODE_COLOR = { bloodgroup: "#e53935", bridge: "#ffa000", donor: "#1976d2" };
+const EDGE_COLOR = {
+  "COMPATIBLE_WITH": "#e53935",
+  "MEMBER_OF":       "#1976d2",
+  "DONATED_FOR":     "#ffa000",
+  "DISTANCE_TO":     "#00bfa5",
+};
+const NODE_RADIUS = { bloodgroup: 20, bridge: 12, donor: 6 };
+
+// ── SVG SETUP ─────────────────────────────────────────────────────────────────
+const W = window.innerWidth, H = window.innerHeight;
+const svg = d3.select("#graph-canvas")
+  .append("svg")
+  .attr("width", W).attr("height", H);
+
+// Glow filter
+const defs = svg.append("defs");
+["red","amber","blue","teal"].forEach((name, i) => {
+  const colors = ["#e53935","#ffa000","#1976d2","#00bfa5"];
+  const f = defs.append("filter").attr("id", `glow-${name}`).attr("x","-50%").attr("y","-50%").attr("width","200%").attr("height","200%");
+  f.append("feGaussianBlur").attr("in","SourceGraphic").attr("stdDeviation","4").attr("result","blur");
+  const merge = f.append("feMerge");
+  merge.append("feMergeNode").attr("in","blur");
+  merge.append("feMergeNode").attr("in","SourceGraphic");
+});
+
+// Arrow markers
+["COMPATIBLE_WITH","MEMBER_OF","DONATED_FOR","DISTANCE_TO"].forEach(type => {
+  defs.append("marker")
+    .attr("id", `arrow-${type}`)
+    .attr("viewBox","0 -4 8 8").attr("refX",14).attr("refY",0)
+    .attr("markerWidth",5).attr("markerHeight",5).attr("orient","auto")
+    .append("path").attr("d","M0,-4L8,0L0,4").attr("fill", EDGE_COLOR[type]).attr("opacity",0.5);
+});
+
+const g = svg.append("g").attr("class","graph-g");
+
+// Zoom
+const zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", e => g.attr("transform", e.transform));
+svg.call(zoom);
+
+// ── FORCE SIMULATION ──────────────────────────────────────────────────────────
+const nodeById = new Map(nodes.map(n => [n.id, n]));
+const resolvedLinks = links.map(l => ({
+  ...l,
+  source: nodeById.get(typeof l.source === 'string' ? l.source : l.source.id),
+  target: nodeById.get(typeof l.target === 'string' ? l.target : l.target.id),
+})).filter(l => l.source && l.target);
+
+const sim = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(resolvedLinks).id(d => d.id)
+    .distance(d => {
+      if (d.type === "COMPATIBLE_WITH") return 90;
+      if (d.type === "MEMBER_OF")       return 80;
+      if (d.type === "DONATED_FOR")     return 100;
+      return 120;
+    }).strength(d => {
+      if (d.type === "COMPATIBLE_WITH") return 0.8;
+      if (d.type === "MEMBER_OF")       return 0.4;
+      return 0.2;
+    })
+  )
+  .force("charge", d3.forceManyBody().strength(d => {
+    if (d.type === "bloodgroup") return -600;
+    if (d.type === "bridge")     return -200;
+    return -40;
+  }))
+  .force("center", d3.forceCenter(W / 2, H / 2))
+  .force("collision", d3.forceCollide(d => NODE_RADIUS[d.type] + 3))
+  .force("x", d3.forceX(W / 2).strength(0.03))
+  .force("y", d3.forceY(H / 2).strength(0.03));
+
+// ── DRAW LINKS ────────────────────────────────────────────────────────────────
+const linkG = g.append("g").attr("class","links");
+const linkSel = linkG.selectAll("line")
+  .data(resolvedLinks)
+  .join("line")
+  .attr("class", d => `edge edge-${d.type}`)
+  .attr("stroke", d => EDGE_COLOR[d.type])
+  .attr("stroke-width", d => d.type === "COMPATIBLE_WITH" ? 1.5 : 0.6)
+  .attr("stroke-opacity", d => {
+    if (d.type === "COMPATIBLE_WITH") return 0.7;
+    if (d.type === "MEMBER_OF")       return 0.3;
+    if (d.type === "DONATED_FOR")     return 0.5;
+    return 0.2;
+  })
+  .attr("marker-end", d => `url(#arrow-${d.type})`);
+
+// ── DRAW NODES ────────────────────────────────────────────────────────────────
+const nodeG = g.append("g").attr("class","nodes");
+const nodeSel = nodeG.selectAll("g.node")
+  .data(nodes)
+  .join("g")
+  .attr("class", d => `node node-${d.type}`)
+  .call(d3.drag()
+    .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+    .on("end",   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+  );
+
+// Glow ring for blood groups
+nodeSel.filter(d => d.type === "bloodgroup")
+  .append("circle")
+  .attr("r", d => NODE_RADIUS[d.type] + 8)
+  .attr("fill", "none")
+  .attr("stroke", d => d.status === "P0" ? "#ff1744" : d.status === "WATCH" ? "#ffa000" : "#e53935")
+  .attr("stroke-width", 1)
+  .attr("stroke-opacity", 0.3)
+  .attr("class","pulse-node");
+
+// Main circle
+nodeSel.append("circle")
+  .attr("r", d => NODE_RADIUS[d.type])
+  .attr("fill", d => {
+    if (d.type === "bloodgroup") {
+      if (d.status === "P0")    return "#ff1744";
+      if (d.status === "WATCH") return "#ffa000";
+      return "#e53935";
+    }
+    if (d.type === "bridge") return d.status === "active" ? "#ffa000" : "#555";
+    if (d.type === "donor")  return d.active ? "#1976d2" : "#37474f";
+    return NODE_COLOR[d.type];
+  })
+  .attr("stroke", d => {
+    if (d.type === "bloodgroup") return d.status === "P0" ? "#ff1744" : "#e53935";
+    return "rgba(255,255,255,0.1)";
+  })
+  .attr("stroke-width", d => d.type === "bloodgroup" ? 2 : 0.5)
+  .attr("filter", d => {
+    if (d.type === "bloodgroup") return "url(#glow-red)";
+    if (d.type === "bridge")     return "url(#glow-amber)";
+    return null;
+  })
+  .style("cursor", "pointer");
+
+// Labels for blood group and bridge nodes
+nodeSel.filter(d => d.type === "bloodgroup")
+  .append("text")
+  .attr("text-anchor", "middle")
+  .attr("dy", "0.35em")
+  .attr("font-size", "8px")
+  .attr("font-weight", "700")
+  .attr("fill", "#fff")
+  .attr("pointer-events","none")
+  .text(d => d.label.split(" ")[0]);
+
+nodeSel.filter(d => d.type === "bridge")
+  .append("text")
+  .attr("text-anchor", "middle")
+  .attr("dy", "2.2em")
+  .attr("font-size", "6px")
+  .attr("fill", "#888")
+  .attr("pointer-events","none")
+  .text(d => d.city);
+
+// ── TOOLTIP + CLICK ───────────────────────────────────────────────────────────
+const tooltip = document.getElementById("tooltip");
+const infoPanel = document.getElementById("info-panel");
+
+nodeSel.on("mouseover", (e, d) => {
+  let html = "";
+  if (d.type === "bloodgroup") {
+    html = `<div class="tooltip-type" style="color:#e53935">Blood Group</div>
+            <div class="tooltip-name">${d.label}</div>
+            <div class="tooltip-row"><span class="tooltip-key">Eligible Active</span><span class="tooltip-val">${d.eligible.toLocaleString()}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">Status</span><span class="tooltip-val" style="color:${d.status==='P0'?'#ff8a80':d.status==='WATCH'?'#ffe082':'#a5d6a7'}">${d.status}</span></div>`;
+  } else if (d.type === "bridge") {
+    html = `<div class="tooltip-type" style="color:#ffa000">Blood Bank</div>
+            <div class="tooltip-name">${d.label}</div>
+            <div class="tooltip-row"><span class="tooltip-key">City</span><span class="tooltip-val">${d.city}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">Status</span><span class="tooltip-val">${d.status}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">DONATED_FOR</span><span class="tooltip-val">${d.donated_for_count}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">DISTANCE_TO</span><span class="tooltip-val">${d.distance_to_count}</span></div>`;
+  } else {
+    html = `<div class="tooltip-type" style="color:#1976d2">Donor</div>
+            <div class="tooltip-name">${d.label}</div>
+            <div class="tooltip-row"><span class="tooltip-key">Blood Group</span><span class="tooltip-val">${d.blood_group}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">City</span><span class="tooltip-val">${d.city}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">Donations</span><span class="tooltip-val">${d.donations}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">Ratio</span><span class="tooltip-val">${d.ratio}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">Tier</span><span class="tooltip-val">${d.tier}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">ML Score</span><span class="tooltip-val">${d.ml_score}</span></div>
+            <div class="tooltip-row"><span class="tooltip-key">Churn Risk</span><span class="tooltip-val" style="color:${d.churn_risk>0.6?'#ff8a80':'#a5d6a7'}">${d.churn_risk}</span></div>`;
+  }
+  tooltip.innerHTML = html;
+  tooltip.style.display = "block";
+  tooltip.style.left = (e.clientX + 14) + "px";
+  tooltip.style.top  = (e.clientY - 10) + "px";
+
+  // Highlight connected edges
+  linkSel.attr("stroke-opacity", l =>
+    (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.05
+  ).attr("stroke-width", l =>
+    (l.source.id === d.id || l.target.id === d.id) ? 2 : 0.6
+  );
+  nodeSel.attr("opacity", n =>
+    n.id === d.id || resolvedLinks.some(l => (l.source.id === d.id && l.target.id === n.id) || (l.target.id === d.id && l.source.id === n.id)) ? 1 : 0.25
+  );
+})
+.on("mousemove", e => {
+  tooltip.style.left = (e.clientX + 14) + "px";
+  tooltip.style.top  = (e.clientY - 10) + "px";
+})
+.on("mouseout", () => {
+  tooltip.style.display = "none";
+  linkSel.attr("stroke-opacity", d => {
+    if (d.type === "COMPATIBLE_WITH") return 0.7;
+    if (d.type === "MEMBER_OF")       return 0.3;
+    if (d.type === "DONATED_FOR")     return 0.5;
+    return 0.2;
+  }).attr("stroke-width", d => d.type === "COMPATIBLE_WITH" ? 1.5 : 0.6);
+  nodeSel.attr("opacity", 1);
+})
+.on("click", (e, d) => {
+  e.stopPropagation();
+  const panel = document.getElementById("info-panel");
+  document.getElementById("info-type").textContent = d.type.toUpperCase();
+  document.getElementById("info-type").style.color = NODE_COLOR[d.type];
+  document.getElementById("info-name").textContent = d.label;
+  let body = "";
+  const connected = resolvedLinks.filter(l => l.source.id === d.id || l.target.id === d.id);
+  if (d.type === "bloodgroup") {
+    body = `<div class="info-row"><span class="info-key">Eligible Active</span><span class="info-val">${d.eligible.toLocaleString()}</span></div>
+            <div class="info-row"><span class="info-key">Status</span><span class="info-val" style="color:${d.status==='P0'?'#ff8a80':d.status==='WATCH'?'#ffe082':'#a5d6a7'}">${d.status}</span></div>`;
+  } else if (d.type === "bridge") {
+    body = `<div class="info-row"><span class="info-key">City</span><span class="info-val">${d.city}</span></div>
+            <div class="info-row"><span class="info-key">Status</span><span class="info-val">${d.status}</span></div>
+            <div class="info-row"><span class="info-key">Donated For</span><span class="info-val">${d.donated_for_count}</span></div>
+            <div class="info-row"><span class="info-key">Distance To</span><span class="info-val">${d.distance_to_count}</span></div>`;
+  } else {
+    body = `<div class="info-row"><span class="info-key">Blood Group</span><span class="info-val">${d.blood_group}</span></div>
+            <div class="info-row"><span class="info-key">City</span><span class="info-val">${d.city}</span></div>
+            <div class="info-row"><span class="info-key">Donations</span><span class="info-val">${d.donations}</span></div>
+            <div class="info-row"><span class="info-key">Calls/Donations</span><span class="info-val">${d.ratio}</span></div>
+            <div class="info-row"><span class="info-key">Tier</span><span class="info-val">${d.tier}</span></div>
+            <div class="info-row"><span class="info-key">ML Score</span><span class="info-val">${d.ml_score}</span></div>
+            <div class="info-row"><span class="info-key">Churn Risk</span><span class="info-val" style="color:${d.churn_risk>0.6?'#ff8a80':'#a5d6a7'}">${d.churn_risk}</span></div>`;
+  }
+  const byType = {};
+  connected.forEach(l => { byType[l.type] = (byType[l.type]||0) + 1; });
+  body += `<div class="info-connections"><div class="info-conn-label">Connections</div>`;
+  Object.entries(byType).forEach(([t, c]) => {
+    body += `<div class="info-conn-item" style="color:${EDGE_COLOR[t]}">${t}: ${c}</div>`;
+  });
+  body += "</div>";
+  document.getElementById("info-body").innerHTML = body;
+  panel.classList.add("visible");
+});
+
+document.getElementById("info-close").onclick = () => infoPanel.classList.remove("visible");
+svg.on("click", () => infoPanel.classList.remove("visible"));
+
+// ── SIMULATION TICK ───────────────────────────────────────────────────────────
+sim.on("tick", () => {
+  linkSel
+    .attr("x1", d => d.source.x)
+    .attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x)
+    .attr("y2", d => d.target.y);
+  nodeSel.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+// ── FILTERS ───────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const showEdges = {
+    COMPATIBLE_WITH: document.getElementById("f-compat").checked,
+    MEMBER_OF:       document.getElementById("f-member").checked,
+    DONATED_FOR:     document.getElementById("f-donated").checked,
+    DISTANCE_TO:     document.getElementById("f-distance").checked,
+  };
+  const showNodes = {
+    bloodgroup: document.getElementById("f-bg").checked,
+    bridge:     document.getElementById("f-bridge").checked,
+    donor:      document.getElementById("f-donor").checked,
+  };
+  linkSel.style("display", d => showEdges[d.type] && showNodes[d.source.type] && showNodes[d.target.type] ? null : "none");
+  nodeSel.style("display", d => showNodes[d.type] ? null : "none");
+}
+["f-compat","f-member","f-donated","f-distance","f-bg","f-bridge","f-donor"].forEach(id => {
+  document.getElementById(id).addEventListener("change", applyFilters);
+});
+
+// ── ZOOM CONTROLS ─────────────────────────────────────────────────────────────
+let simPaused = false;
+document.getElementById("zoom-in").onclick  = () => svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+document.getElementById("zoom-out").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 0.67);
+document.getElementById("reset-zoom").onclick = () => svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(W/2, H/2).scale(0.9).translate(-W/2, -H/2));
+document.getElementById("toggle-sim").onclick = function() {
+  simPaused = !simPaused;
+  simPaused ? sim.stop() : sim.restart();
+  this.textContent = simPaused ? "▶" : "⏸";
+};
+
+// ── BACKGROUND GRID ───────────────────────────────────────────────────────────
+const bg = svg.insert("g","g").attr("class","bg-grid");
+for (let x = 0; x < W; x += 60) {
+  bg.append("line").attr("x1",x).attr("y1",0).attr("x2",x).attr("y2",H).attr("stroke","rgba(255,255,255,0.018)").attr("stroke-width",0.5);
+}
+for (let y = 0; y < H; y += 60) {
+  bg.append("line").attr("x1",0).attr("y1",y).attr("x2",W).attr("y2",y).attr("stroke","rgba(255,255,255,0.018)").attr("stroke-width",0.5);
+}
+</script>
+</body>
+</html>

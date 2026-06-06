@@ -2,6 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate, useLocatio
 import { getToken } from './api/client';
 import Sidebar from './components/layout/Sidebar';
 import Login from './pages/Login';
+import PatientLogin from './pages/patient/PatientLogin';
+import PatientPortal from './pages/patient/PatientPortal';
+import PatientMatchPage from './pages/patient/PatientMatchPage';
+import PatientOutreach from './pages/patient/PatientOutreach';
 import Dashboard from './pages/Dashboard';
 import MatchPage from './pages/MatchPage';
 import LiveOutreach from './pages/LiveOutreach';
@@ -74,6 +78,14 @@ export default function App() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/inventory/dashboard" element={<InventoryDashboard />} />
         </Route>
+        {/* Patient portal */}
+        <Route path="/patient-login" element={<PatientLogin />} />
+        <Route path="/patient" element={<PatientPortal />}>
+          <Route index element={<Navigate to="/patient/match" replace />} />
+          <Route path="match" element={<PatientMatchPage />} />
+          <Route path="outreach" element={<PatientOutreach />} />
+        </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

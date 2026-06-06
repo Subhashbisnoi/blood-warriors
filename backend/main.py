@@ -6,7 +6,7 @@ import os
 
 from backend.config import settings
 from backend.database import check_connection
-from backend.routers import auth, dashboard, match, outreach, chat, donors, ws, bills, inventory
+from backend.routers import auth, dashboard, match, outreach, chat, donors, ws, bills, inventory, patient
 
 app = FastAPI(title="Blood Warriors AI", version="1.0.0")
 
@@ -28,6 +28,7 @@ app.include_router(donors.router)
 app.include_router(ws.router)
 app.include_router(bills.router)
 app.include_router(inventory.router)
+app.include_router(patient.router)
 
 # Serve frontend static files
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
