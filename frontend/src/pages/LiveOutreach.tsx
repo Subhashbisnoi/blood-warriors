@@ -63,15 +63,21 @@ export default function LiveOutreach() {
       load(paramMatchId);
     } else {
       listMatches(undefined, 1)
-        .then((matches: { match_id: string }[]) => {
-          if (matches?.[0]?.match_id) {
-            setMatchId(matches[0].match_id);
-            load(matches[0].match_id);
-          }
+        .then((matches: { id?: string; match_id?: string }[]) => {
+          const id = matches?.[0]?.id ?? matches?.[0]?.match_id;
+          if (id) { setMatchId(id); load(id); }
         })
         .catch(console.error);
     }
   }, [paramMatchId, load]);
+
+  // Poll every 3s while the match is not yet resolved
+  useEffect(() => {
+    if (!matchId) return;
+    if (session?.status === 'confirmed' || session?.status === 'escalated') return;
+    const t = setInterval(() => load(matchId), 3000);
+    return () => clearInterval(t);
+  }, [matchId, session?.status, load]);
 
   useWebSocket(useCallback((data: unknown) => {
     const ev = data as { type?: string; match_id?: string };

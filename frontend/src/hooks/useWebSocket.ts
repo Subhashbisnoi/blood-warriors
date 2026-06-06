@@ -10,7 +10,11 @@ export function useWebSocket(onMessage: (data: unknown) => void) {
     if (unmountedRef.current) return;
     const token = getToken();
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/ws/dashboard${token ? `?token=${token}` : ''}`;
+    const apiBase = import.meta.env.VITE_API_URL ?? '';
+    const wsHost = apiBase
+      ? apiBase.replace(/^https?/, proto).replace(/\/api\/?$/, '')
+      : `${proto}://${window.location.host}`;
+    const url = `${wsHost}/ws/dashboard${token ? `?token=${token}` : ''}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
