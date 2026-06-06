@@ -62,6 +62,8 @@ export interface DonorCandidate {
   needs_reengagement: boolean;
   tier: 'Tier1' | 'Tier2' | 'Reserve';
   distance_km: number | null;
+  latitude: number | null;
+  longitude: number | null;
   donor_type: string;
   donations_till_date: number;
   next_eligible_date: string | null;
