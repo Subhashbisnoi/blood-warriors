@@ -30,7 +30,7 @@ export default function InventoryDashboard() {
     setLoading(true)
     try {
       const token = localStorage.getItem('bw_token')
-      const res = await axios.get('/api/inventory/dashboard', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await axios.get('/inventory/dashboard', { headers: { Authorization: `Bearer ${token}` } })
       setData(res.data)
     } catch { /* silent */ }
     finally { setLoading(false) }

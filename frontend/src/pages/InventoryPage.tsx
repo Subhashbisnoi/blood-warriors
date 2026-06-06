@@ -40,7 +40,7 @@ export default function InventoryPage() {
       const token = localStorage.getItem('bw_token')
       const params: Record<string, string> = {}
       if (cat && cat !== 'All') params.category = cat
-      const res = await axios.get('/api/inventory/items', { headers: { Authorization: `Bearer ${token}` }, params })
+      const res = await axios.get('/inventory/items', { headers: { Authorization: `Bearer ${token}` }, params })
       setItems(res.data)
     } catch { /* silent */ }
     finally { setLoading(false) }
