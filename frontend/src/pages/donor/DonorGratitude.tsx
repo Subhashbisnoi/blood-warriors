@@ -9,9 +9,7 @@ function bgShort(bg: string) {
 }
 
 function GratitudeCard({ msg, index }: { msg: GratitudeMessage; index: number }) {
-  // Real messages always get the red accent; samples rotate through ACCENTS
   const accent = msg.is_real ? '#ba1a1a' : ACCENTS[index % ACCENTS.length];
-  const initials = msg.from_patient.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const short = bgShort(msg.blood_group);
 
   return (
@@ -26,14 +24,14 @@ function GratitudeCard({ msg, index }: { msg: GratitudeMessage; index: number })
       <div className="p-lg flex flex-col gap-md flex-1">
         {/* Header */}
         <div className="flex items-start gap-md">
-          <div className="w-11 h-11 rounded-full flex items-center justify-center font-black text-white flex-shrink-0 text-[13px]"
+          <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                style={{ background: `linear-gradient(135deg,${accent},${accent}99)` }}>
-            {initials}
+            <span className="material-symbols-outlined icon-fill" style={{ color: '#fff', fontSize: 20 }}>favorite</span>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-xs flex-wrap">
-              <span className="text-label-lg font-bold text-on-surface leading-tight">{msg.from_patient}</span>
+              <span className="text-label-lg font-bold text-on-surface leading-tight">Anonymous Patient</span>
               <span className="text-[11px] px-xs py-[1px] rounded-full font-bold"
                     style={{ background: accent + '15', color: accent }}>{short}</span>
               {msg.is_real ? (
