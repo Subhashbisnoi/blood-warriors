@@ -195,7 +195,7 @@ function ResultBlock({ result }: { result: BulkResultItem }) {
 
       {expanded && result.status === 'matched' && (
         <div className="px-lg pb-lg flex flex-col gap-sm">
-          {(result.candidates as Record<string, unknown>[]).map((c, i) => (
+          {(result.candidates as unknown as Record<string, unknown>[]).map((c, i) => (
             <CandidateRow key={i} c={c} rank={i + 1} />
           ))}
         </div>

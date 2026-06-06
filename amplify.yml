@@ -7,7 +7,7 @@ frontend:
         - npm ci
     build:
       commands:
-        - VITE_API_URL=https://api.collabup.live/api npm run build
+        - npm run build
   artifacts:
     baseDirectory: frontend/dist
     files:
