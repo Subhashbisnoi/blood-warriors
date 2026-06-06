@@ -15,9 +15,11 @@ export interface GratitudeMessage {
 
 export interface DonorProfile {
   id: string; hash: string; blood_group: string; city: string; gender: string;
+  donor_name?: string; phone?: string;
   donor_type: string; donations_till_date: number;
   last_donation_date: string | null; next_eligible_date: string | null;
   kag_score: number | null; donor_tier: string; eligibility_status: string;
+  portal_registered?: boolean;
   donation_history: DonationRecord[];
   gratitude_messages: GratitudeMessage[];
   lives_saved: number;
@@ -25,6 +27,15 @@ export interface DonorProfile {
 
 export async function donorLogin(hashId: string): Promise<{ access_token: string; profile: DonorProfile }> {
   const res = await axios.post(`${BASE}/login`, { hash_id: hashId });
+  return res.data;
+}
+
+export async function donorRegister(data: {
+  full_name: string; blood_group: string; gender: string; city: string;
+  phone: string; date_of_birth?: string; donor_type: string;
+  has_donated_before: boolean; previous_donations: number; medical_notes?: string;
+}): Promise<{ access_token: string; profile: DonorProfile; donor_id: string }> {
+  const res = await axios.post(`${BASE}/register`, data);
   return res.data;
 }
 

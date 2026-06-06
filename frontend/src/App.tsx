@@ -14,6 +14,7 @@ import ChatAssistant from './pages/ChatAssistant';
 import DonorPortal from './pages/DonorPortal';
 import PatientGratitude from './pages/patient/PatientGratitude';
 import DonorLogin from './pages/donor/DonorLogin';
+import DonorRegister from './pages/donor/DonorRegister';
 import DonorLayout from './pages/donor/DonorLayout';
 import DonorDashboard from './pages/donor/DonorDashboard';
 import DonorGratitude from './pages/donor/DonorGratitude';
@@ -93,6 +94,7 @@ export default function App() {
 
         {/* Donor portal */}
         <Route path="/donor-login" element={<DonorLogin />} />
+        <Route path="/donor-register" element={<DonorRegister />} />
         <Route path="/donor" element={<DonorLayout />}>
           <Route index element={<Navigate to="/donor/dashboard" replace />} />
           <Route path="dashboard" element={<DonorDashboard />} />

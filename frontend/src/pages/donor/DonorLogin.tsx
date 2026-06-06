@@ -108,6 +108,12 @@ export default function DonorLogin() {
             </form>
 
             <div className="pt-md border-t border-outline-variant/30 space-y-sm">
+              <Link to="/donor-register"
+                className="w-full flex items-center justify-center gap-sm py-sm rounded-xl border-2 text-label-md font-bold transition-colors"
+                style={{ borderColor: '#ba1a1a', color: '#ba1a1a' }}>
+                <span className="material-symbols-outlined icon-fill" style={{ fontSize: 16 }}>volunteer_activism</span>
+                New Donor? Register here
+              </Link>
               <Link to="/patient-login"
                 className="w-full flex items-center justify-center gap-sm py-sm rounded-xl border text-label-md font-medium transition-colors text-on-surface-variant hover:text-primary"
                 style={{ borderColor: 'rgba(0,0,0,0.1)' }}>

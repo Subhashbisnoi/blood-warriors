@@ -209,7 +209,9 @@ export default function DonorDashboard() {
           {/* Name + meta */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-sm flex-wrap mb-[6px]">
-              <h1 className="text-[1.45rem] font-black text-white leading-none">Donor {profile.hash}</h1>
+              <h1 className="text-[1.45rem] font-black text-white leading-none">
+                {profile.donor_name ?? `Donor ${profile.hash}`}
+              </h1>
               <span className="inline-flex items-center gap-[3px] px-sm py-[2px] rounded-full text-[11px] font-black"
                     style={{ background: tier.color+'22', color: tier.color, border:`1px solid ${tier.color}44` }}>
                 <span className="material-symbols-outlined icon-fill" style={{ fontSize:11 }}>{tier.icon}</span>
