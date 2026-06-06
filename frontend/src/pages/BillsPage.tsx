@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, RefreshCcw, Search, X, Filter, CheckCircle2,
-  FileText, ExternalLink, Download, ChevronDown, LayoutDashboard,
+  FileText, ExternalLink, Download, LayoutDashboard,
 } from 'lucide-react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'

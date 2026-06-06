@@ -29,11 +29,13 @@ export interface InactiveDonor {
 export interface ActiveBridge {
   bridge_id: string;
   bridge_blood_group: string;
+  patient_blood_group: string;
   expected_next_transfusion_date: string;
   days_until: number;
   quantity_required: number;
   confirmed_donors: number;
   total_donors: number;
+  donor_count: number;
   urgency: string;
 }
 
@@ -76,6 +78,7 @@ export interface MatchResponse {
   status: string;
   candidates: DonorCandidate[];
   total_scanned: number;
+  total_pool_searched?: number;
 }
 
 export interface OutreachEvent {
