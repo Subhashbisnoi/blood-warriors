@@ -12,6 +12,10 @@ import InactiveDonors from './pages/InactiveDonors';
 import Analytics from './pages/Analytics';
 import ChatAssistant from './pages/ChatAssistant';
 import DonorPortal from './pages/DonorPortal';
+import DonorLogin from './pages/donor/DonorLogin';
+import DonorLayout from './pages/donor/DonorLayout';
+import DonorDashboard from './pages/donor/DonorDashboard';
+import DonorGratitude from './pages/donor/DonorGratitude';
 import BillsPage from './pages/BillsPage';
 import BillUploadPage from './pages/BillUploadPage';
 import BillsDashboardPage from './pages/BillsDashboardPage';
@@ -82,6 +86,15 @@ export default function App() {
           <Route index element={<Navigate to="/patient/match" replace />} />
           <Route path="match" element={<MatchPage />} />
           <Route path="outreach" element={<LiveOutreach />} />
+          <Route path="chat" element={<ChatAssistant />} />
+        </Route>
+
+        {/* Donor portal */}
+        <Route path="/donor-login" element={<DonorLogin />} />
+        <Route path="/donor" element={<DonorLayout />}>
+          <Route index element={<Navigate to="/donor/dashboard" replace />} />
+          <Route path="dashboard" element={<DonorDashboard />} />
+          <Route path="gratitude" element={<DonorGratitude />} />
           <Route path="chat" element={<ChatAssistant />} />
         </Route>
 

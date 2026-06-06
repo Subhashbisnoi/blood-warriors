@@ -155,12 +155,20 @@ export default function Login() {
             </div>
 
             <div className="pt-md border-t border-outline-variant/30 text-center space-y-sm">
-              <Link to="/patient-login"
-                className="w-full flex items-center justify-center gap-sm py-sm rounded-xl border-2 text-label-md font-bold transition-colors"
-                style={{ borderColor: '#ba1a1a', color: '#ba1a1a' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>favorite</span>
-                Patient Portal →
-              </Link>
+              <div className="flex gap-sm">
+                <Link to="/patient-login"
+                  className="flex-1 flex items-center justify-center gap-sm py-sm rounded-xl border-2 text-label-md font-bold transition-colors"
+                  style={{ borderColor: '#ba1a1a', color: '#ba1a1a' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>favorite</span>
+                  Patient →
+                </Link>
+                <Link to="/donor-login"
+                  className="flex-1 flex items-center justify-center gap-sm py-sm rounded-xl border-2 text-label-md font-bold transition-colors"
+                  style={{ borderColor: '#1565c0', color: '#1565c0' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>volunteer_activism</span>
+                  Donor →
+                </Link>
+              </div>
               <p className="text-label-sm text-on-surface-variant flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-[16px]">verified_user</span>
                 Powered by Claude AI • DPDP Compliant
