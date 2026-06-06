@@ -124,7 +124,34 @@ def donor_login(req: DonorLoginReq, db: Session = Depends(get_db)):
 
     # Generate & cache sample data
     history  = _gen_donation_history(uid, bg, dtd)
-    gratitude = _gen_gratitude(uid, bg, dtd)
+    sample_gratitude = _gen_gratitude(uid, bg, dtd)
+
+    # Fetch real gratitude messages from DB and prepend them
+    real_gratitude = []
+    try:
+        real_rows = db.execute(text("""
+            SELECT id, patient_name, blood_group, message, city, created_at
+            FROM patient_gratitude
+            WHERE donor_id = :uid
+            ORDER BY created_at DESC
+        """), {"uid": uid}).mappings().all()
+        real_gratitude = [
+            {
+                "id": str(r["id"]),
+                "from_patient": r["patient_name"],
+                "blood_group": r["blood_group"],
+                "message": r["message"],
+                "city": r["city"],
+                "date": str(r["created_at"])[:10],
+                "lives_saved_moment": True,
+                "is_real": True,
+            }
+            for r in real_rows
+        ]
+    except Exception:
+        pass  # table may not exist yet
+
+    gratitude = real_gratitude + sample_gratitude
 
     token = create_access_token({
         "sub": uid,

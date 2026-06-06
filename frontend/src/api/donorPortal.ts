@@ -10,6 +10,7 @@ export interface DonationRecord {
 export interface GratitudeMessage {
   id: string; from_patient: string; blood_group: string;
   message: string; city: string; date: string; lives_saved_moment: boolean;
+  is_real?: boolean;
 }
 
 export interface DonorProfile {
@@ -37,6 +38,11 @@ export function getDonorProfile(): DonorProfile | null {
   try { const r = localStorage.getItem('bw_donor_profile'); return r ? JSON.parse(r) : null; }
   catch { return null; }
 }
+export async function fetchRealGratitude(donorHash: string): Promise<GratitudeMessage[]> {
+  const res = await axios.get(`/api/patient/gratitude/donor/${donorHash}`);
+  return (res.data.messages ?? []) as GratitudeMessage[];
+}
+
 export function clearDonorSession() {
   localStorage.removeItem('bw_donor_token');
   localStorage.removeItem('bw_donor_profile');

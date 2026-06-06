@@ -12,6 +12,7 @@ import InactiveDonors from './pages/InactiveDonors';
 import Analytics from './pages/Analytics';
 import ChatAssistant from './pages/ChatAssistant';
 import DonorPortal from './pages/DonorPortal';
+import PatientGratitude from './pages/patient/PatientGratitude';
 import DonorLogin from './pages/donor/DonorLogin';
 import DonorLayout from './pages/donor/DonorLayout';
 import DonorDashboard from './pages/donor/DonorDashboard';
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="match" element={<MatchPage />} />
           <Route path="outreach" element={<LiveOutreach />} />
           <Route path="chat" element={<ChatAssistant />} />
+          <Route path="gratitude" element={<PatientGratitude />} />
         </Route>
 
         {/* Donor portal */}

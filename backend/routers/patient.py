@@ -1,5 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from datetime import datetime, timezone
+from uuid import uuid4
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from backend.database import get_db
 from backend.core.auth import create_access_token
 
 router = APIRouter(prefix="/api/patient", tags=["patient"])
@@ -85,3 +90,100 @@ def get_profile(email: str):
     if not p:
         raise HTTPException(status_code=404, detail="Profile not found.")
     return {k: v for k, v in p.items() if k != "password"}
+
+
+# ── Gratitude messages ────────────────────────────────────────────────────────
+
+class GratitudeReq(BaseModel):
+    donor_hash: str       # 4-8 char prefix of donor's user_id_hash
+    message: str
+
+
+@router.post("/gratitude")
+def send_gratitude(req: GratitudeReq, db: Session = Depends(get_db)):
+    """Patient sends a real gratitude message to a donor, saved to DB."""
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if len(req.message) > 500:
+        raise HTTPException(status_code=400, detail="Message too long (max 500 chars).")
+
+    # Resolve donor
+    search = req.donor_hash.strip().upper()
+    donor = db.execute(text("""
+        SELECT u.id, u.user_id_hash, u.blood_group, u.city
+        FROM users u
+        WHERE UPPER(u.user_id_hash) LIKE :q
+          AND u.role IN ('Bridge Donor', 'Emergency Donor')
+        LIMIT 1
+    """), {"q": f"{search}%"}).mappings().first()
+
+    if not donor:
+        raise HTTPException(status_code=404, detail="Donor not found. Please check the Donor ID.")
+
+    # Ensure table exists
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS patient_gratitude (
+            id          TEXT PRIMARY KEY,
+            donor_id    TEXT NOT NULL,
+            patient_name TEXT NOT NULL,
+            blood_group TEXT,
+            message     TEXT NOT NULL,
+            city        TEXT,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """))
+    db.commit()
+
+    msg_id = str(uuid4())
+    db.execute(text("""
+        INSERT INTO patient_gratitude (id, donor_id, patient_name, blood_group, message, city, created_at)
+        VALUES (:id, :donor_id, :patient_name, :blood_group, :message, :city, :created_at)
+    """), {
+        "id": msg_id,
+        "donor_id": str(donor["id"]),
+        "patient_name": "Anonymous Patient",   # patient identity kept private
+        "blood_group": donor["blood_group"] or "O+",
+        "message": req.message.strip(),
+        "city": donor["city"] or "India",
+        "created_at": datetime.now(timezone.utc),
+    })
+    db.commit()
+    return {"ok": True, "id": msg_id, "donor_hash": str(donor["user_id_hash"])[:8].upper()}
+
+
+@router.get("/gratitude/donor/{donor_hash}")
+def get_real_gratitude(donor_hash: str, db: Session = Depends(get_db)):
+    """Fetch all real gratitude messages for a donor (used by donor portal)."""
+    search = donor_hash.strip().upper()
+    donor = db.execute(text("""
+        SELECT u.id FROM users u
+        WHERE UPPER(u.user_id_hash) LIKE :q
+          AND u.role IN ('Bridge Donor', 'Emergency Donor')
+        LIMIT 1
+    """), {"q": f"{search}%"}).mappings().first()
+    if not donor:
+        return {"messages": []}
+
+    try:
+        rows = db.execute(text("""
+            SELECT id, patient_name, blood_group, message, city, created_at
+            FROM patient_gratitude
+            WHERE donor_id = :donor_id
+            ORDER BY created_at DESC
+        """), {"donor_id": str(donor["id"])}).mappings().all()
+    except Exception:
+        return {"messages": []}
+
+    return {"messages": [
+        {
+            "id": str(r["id"]),
+            "from_patient": r["patient_name"],
+            "blood_group": r["blood_group"],
+            "message": r["message"],
+            "city": r["city"],
+            "date": str(r["created_at"])[:10],
+            "lives_saved_moment": True,
+            "is_real": True,
+        }
+        for r in rows
+    ]}

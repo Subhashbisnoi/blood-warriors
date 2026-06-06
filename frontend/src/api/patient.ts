@@ -61,3 +61,11 @@ export function getPatientMatchIds(): string[] {
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
+
+export async function sendGratitude(donorHash: string, message: string): Promise<{ ok: boolean; donor_hash: string }> {
+  const token = getPatientToken();
+  const res = await axios.post(`${BASE}/gratitude`, { donor_hash: donorHash, message }, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return res.data;
+}

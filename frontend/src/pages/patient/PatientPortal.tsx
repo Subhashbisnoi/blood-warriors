@@ -44,8 +44,9 @@ export default function PatientPortal() {
   const bmiColor = profile.bmi < 18.5 ? '#e65100' : profile.bmi < 25 ? '#2e7d32' : profile.bmi < 30 ? '#e65100' : '#ba1a1a';
 
   const tabs = [
-    { to: '/patient/match',    icon: 'manage_search',         label: 'Match Request' },
-    { to: '/patient/outreach', icon: 'notifications_active',  label: 'Outreach Log'  },
+    { to: '/patient/match',     icon: 'manage_search',        label: 'Match Request' },
+    { to: '/patient/outreach',  icon: 'notifications_active', label: 'Outreach Log'  },
+    { to: '/patient/gratitude', icon: 'favorite',             label: 'Send Thanks'   },
   ];
 
   return (
