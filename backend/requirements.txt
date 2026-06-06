@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+scikit-learn
+lightgbm
+numpy
+pandas
+joblib
+twilio
+anthropic
+gremlinpython
+boto3
