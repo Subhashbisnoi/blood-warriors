@@ -81,7 +81,7 @@ export default function DonorGratitude() {
           <div className="flex items-center gap-sm mb-sm">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                  style={{ background:'rgba(186,26,26,0.25)' }}>
-              <span className="material-symbols-outlined icon-fill" style={{ color:'#fca5a5', fontSize:22 }}>mail_heart</span>
+              <span className="material-symbols-outlined icon-fill" style={{ color:'#fca5a5', fontSize:22 }}>favorite</span>
             </div>
             <h1 className="text-[1.45rem] font-black text-white leading-tight">Gratitude Messages</h1>
           </div>
@@ -93,7 +93,7 @@ export default function DonorGratitude() {
           <div className="flex gap-md flex-wrap">
             <div className="px-md py-sm rounded-xl flex items-center gap-sm"
                  style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.1)' }}>
-              <span className="material-symbols-outlined" style={{ color:'#fca5a5', fontSize:16 }}>mail</span>
+              <span className="material-symbols-outlined icon-fill" style={{ color:'#fca5a5', fontSize:16 }}>chat_bubble</span>
               <span className="text-[13px] font-bold text-white">{messages.length}</span>
               <span className="text-[12px]" style={{ color:'rgba(255,255,255,0.5)' }}>messages</span>
             </div>
@@ -115,7 +115,7 @@ export default function DonorGratitude() {
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-lg"
                  style={{ background:'rgba(186,26,26,0.06)', border:'1px solid rgba(186,26,26,0.12)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize:32, color:'#ba1a1a' }}>mail_heart</span>
+              <span className="material-symbols-outlined icon-fill" style={{ fontSize:32, color:'#ba1a1a' }}>favorite</span>
             </div>
             <p className="text-title-lg font-bold text-on-surface">No messages yet</p>
             <p className="text-body-md text-on-surface-variant mt-xs max-w-xs">

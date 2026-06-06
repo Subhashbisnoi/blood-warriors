@@ -39,7 +39,7 @@ export default function DonorLayout() {
 
   const tabs = [
     { to: '/donor/dashboard', icon: 'monitoring',     label: 'My Impact'   },
-    { to: '/donor/gratitude', icon: 'mail_heart',     label: 'Gratitude'   },
+    { to: '/donor/gratitude', icon: 'favorite',        label: 'Gratitude'   },
   ];
 
   return (
