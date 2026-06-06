@@ -3,13 +3,12 @@ import uuid
 import json
 import shutil
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
-from typing import Any
 from backend.database import get_db
 from backend.config import settings
 from backend.services.ocr_engine import process_file_async
@@ -239,8 +238,8 @@ def get_bill(bill_id: str, db: Session = Depends(get_db)):
 # ── Ingest (full OCR payload → bill) ─────────────────────────────────────────
 
 class IngestRequest(BaseModel):
-    payload: dict[str, Any]
-    company_id: str | None = None
+    payload: Dict[str, Any]
+    company_id: Optional[str] = None
 
 @router.post("/ingest")
 def ingest_bill(req: IngestRequest, db: Session = Depends(get_db)):
@@ -327,9 +326,9 @@ def ingest_bill(req: IngestRequest, db: Session = Depends(get_db)):
 
 class ActionRequest(BaseModel):
     action: str
-    actor_name: str | None = None
-    actor_role: str | None = None
-    comment: str | None = None
+    actor_name: Optional[str] = None
+    actor_role: Optional[str] = None
+    comment: Optional[str] = None
 
 @router.post("/{bill_id}/action")
 def bill_action(bill_id: str, req: ActionRequest, db: Session = Depends(get_db)):
@@ -378,14 +377,14 @@ def bill_action(bill_id: str, req: ActionRequest, db: Session = Depends(get_db))
 # ── Update bill ───────────────────────────────────────────────────────────────
 
 @router.put("/{bill_id}")
-def update_bill(bill_id: str, body: dict[str, Any], db: Session = Depends(get_db)):
+def update_bill(bill_id: str, body: Dict[str, Any], db: Session = Depends(get_db)):
     row = db.execute(text("SELECT id FROM medical_bills WHERE id = :id"), {"id": bill_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Bill not found")
 
     vendor = body.get("vendor") or {}
     vendor_name = vendor.get("name") if isinstance(vendor, dict) else None
-    updates: dict[str, Any] = {}
+    updates: Dict[str, Any] = {}
     if vendor_name is not None:
         updates["vendor_name"] = vendor_name
     if body.get("vendor_name") is not None:

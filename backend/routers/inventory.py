@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
-from typing import Any
+from typing import Any, Optional, Dict, List
 from backend.database import get_db
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
@@ -12,17 +12,17 @@ router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 class ItemIn(BaseModel):
     item_name: str
-    description: str | None = None
-    category: str | None = None
-    quantity: float | None = None
-    unit: str | None = None
-    unit_price: float | None = None
-    total_amount: float | None = None
-    hsn_sac: str | None = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    unit_price: Optional[float] = None
+    total_amount: Optional[float] = None
+    hsn_sac: Optional[str] = None
 
 class AddItemsRequest(BaseModel):
     bill_id: str
-    items: list[ItemIn]
+    items: List[ItemIn]
 
 @router.post("/items")
 def add_items(req: AddItemsRequest, db: Session = Depends(get_db)):
@@ -44,7 +44,7 @@ def add_items(req: AddItemsRequest, db: Session = Depends(get_db)):
 # ── List all inventory items ──────────────────────────────────────────────────
 
 @router.get("/items")
-def list_items(category: str | None = None, db: Session = Depends(get_db)):
+def list_items(category: Optional[str] = None, db: Session = Depends(get_db)):
     q = """
         SELECT i.id, i.bill_id, i.item_name, i.description, i.category,
                i.quantity, i.unit, i.unit_price, i.total_amount, i.hsn_sac,
@@ -54,7 +54,7 @@ def list_items(category: str | None = None, db: Session = Depends(get_db)):
         JOIN medical_bills mb ON mb.id = i.bill_id
         WHERE mb.status = 'approved'
     """
-    params: dict[str, Any] = {}
+    params: Dict[str, Any] = {}
     if category:
         q += " AND i.category = :cat"
         params["cat"] = category
