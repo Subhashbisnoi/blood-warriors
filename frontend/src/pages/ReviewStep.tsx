@@ -92,7 +92,7 @@ export default function ReviewStep({ data, loading: ocrLoading, error: ocrError,
   const [notes, setNotes]                   = useState<{ text: string; ts: string }[]>([])
   const docInputRef = useRef<HTMLInputElement>(null)
   const [ledgers, setLedgers]               = useState<LedgerAccount[]>([])
-  const [suggestions, setSuggestions]       = useState<Record<number, LedgerSuggestion[]>>({})
+  const [suggestions, _setSuggestions]      = useState<Record<number, LedgerSuggestion[]>>({})
   const [ledgerOpen, setLedgerOpen]         = useState<number | null>(null)
   const [ledgerSearch, setLedgerSearch]     = useState('')
   const [ledgerAnchor, setLedgerAnchor]     = useState<{ top: number; left: number; width: number } | null>(null)

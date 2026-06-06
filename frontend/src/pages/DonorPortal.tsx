@@ -1,4 +1,5 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import TopBar from '../components/layout/TopBar';
 import { getDonor, getDonorBridges } from '../api/donors';
 import type { DonorProfile } from '../types';

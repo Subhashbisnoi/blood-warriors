@@ -486,7 +486,7 @@ export async function updateBill(invoiceId: string, updates: Record<string, unkn
 }
 
 export async function updatePaymentStatus(
-  invoiceId: string,
+  _invoiceId: string,
   _payload: { payment_status: string; amount_paid?: number; actor_name?: string; actor_role?: string }
 ): Promise<void> {
   invalidateBillsCache()

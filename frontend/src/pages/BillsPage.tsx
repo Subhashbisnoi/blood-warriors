@@ -4,9 +4,8 @@ import { FileText, RefreshCw, AlertCircle, X, ZoomIn, ZoomOut, RotateCcw, Chevro
 import { getAllCategories, addCustomCategory, syncCategoriesFromApi } from '../utils/categories'
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 import { Document, Page, pdfjs } from 'react-pdf'
-import { fetchBills, fetchBillDetail, billAction, updateBill, updatePaymentStatus, fetchNotificationCount, invalidateDetailCache, invalidateBillsCache, bulkBillAction, fetchChainConfig, fetchDepartments, type Bill, type BillDetail, type ChainEntry, type BulkActionResult, type BillAttachment } from '../api/invoices'
+import { fetchBills, fetchBillDetail, billAction, updateBill, updatePaymentStatus, fetchNotificationCount, invalidateDetailCache, invalidateBillsCache, bulkBillAction, fetchChainConfig, fetchDepartments, type Bill, type BillDetail, type ChainEntry, type BillAttachment } from '../api/invoices'
 import { useAuth } from '../auth/AuthContext'
-import { getChain } from '../utils/chainConfig'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -268,7 +267,7 @@ const PdfViewer = memo(function PdfViewer({
   zoom: number
   onLoaded: (n: number) => void
   onError: () => void
-  pdfRef: React.RefObject<HTMLDivElement>
+  pdfRef: React.RefObject<HTMLDivElement | null>
 }) {
   return (
     <div className="bm__pdfbody" ref={pdfRef}>
@@ -825,7 +824,6 @@ function BillModal({ bill, origin, cachedDetail, onClose, onRefresh }: {
                     {(detail.attachments ?? []).map((a: BillAttachment) => {
                       const url = `${API_BASE}/api/bills/${bill.invoice_id}/attachments/${a.id}/download`
                       const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(a.file_name)
-                      const isPdf   = /\.pdf$/i.test(a.file_name)
                       return (
                         <div key={a.id} className="bm__attach-row">
                           <FileText size={14} style={{ color: '#6b7280', flexShrink: 0 }} />
@@ -1278,33 +1276,8 @@ const TDS_STATUS_META: Record<string, { bg: string; color: string; label: string
   ERROR:      { bg: '#fee2e2', color: '#dc2626', label: 'ERR' },
 }
 
-function TdsBadge({ bill }: { bill: Bill }) {
-  const s = bill.tds_status?.toUpperCase()
-  if (!s || s === 'NA') {
-    return <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
-  }
-  const meta = TDS_STATUS_META[s] ?? { bg: '#f3f4f6', color: '#6b7280', label: s }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{
-        display: 'inline-block', padding: '1px 7px', borderRadius: 20,
-        fontSize: 11, fontWeight: 700,
-        background: meta.bg, color: meta.color,
-      }}>
-        {meta.label}
-        {s === 'CALCULATED' && bill.tds_section_code ? ` · ${bill.tds_section_code}` : ''}
-      </span>
-      {s === 'CALCULATED' && bill.tds_amount != null && (
-        <span style={{ fontSize: 11, color: '#374151', fontVariantNumeric: 'tabular-nums', paddingLeft: 2 }}>
-          ₹{Math.round(bill.tds_amount).toLocaleString('en-IN')}
-          {bill.tds_rate ? ` @ ${bill.tds_rate}%` : ''}
-        </span>
-      )}
-    </div>
-  )
-}
 
-function PriorityBadge({ bill, isAdmin, userName, userRole, companyId, onRefresh }: {
+function PriorityBadge({ bill, isAdmin, userName, userRole, companyId, onRefresh: _onRefresh }: {
   bill: Bill; isAdmin?: boolean; userName?: string; userRole?: string; companyId?: string; onRefresh?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -1574,9 +1547,6 @@ export default function BillsPage({ initialBillId, onBillOpened }: { initialBill
   const filterPanelRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<'all' | 'my_approval' | 'my_uploaded' | 'approved'>('all')
 
-  // Keep old single-status alias so filteredBills logic compiles
-  const filterStatus = filterStatuses[0] ?? ''
-  const setFilterStatus = (v: string) => setFilterStatuses(v ? [v] : [])
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkToast, setBulkToast]   = useState<{ succeeded: number; failed: number; action: string } | null>(null)
@@ -1647,7 +1617,7 @@ export default function BillsPage({ initialBillId, onBillOpened }: { initialBill
       if (!(roleOk && nameOk)) return false
     }
     if (activeTab === 'my_uploaded') {
-      const byMe = b.uploaded_by_name === user?.name || (b as Record<string,unknown>).uploaded_by === user?.username
+      const byMe = b.uploaded_by_name === user?.name || b.uploaded_by_name === user?.username
       if (!byMe) return false
     }
     if (activeTab === 'approved') {
@@ -1655,7 +1625,7 @@ export default function BillsPage({ initialBillId, onBillOpened }: { initialBill
     }
     // Members only see their own uploaded bills
     if (user?.role === 'member') {
-      const byMe = b.uploaded_by_name === user?.name || (b as Record<string,unknown>).uploaded_by === user?.username
+      const byMe = b.uploaded_by_name === user?.name || b.uploaded_by_name === user?.username
       if (!byMe) return false
     }
     // Status multi-select
