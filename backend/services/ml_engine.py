@@ -28,8 +28,9 @@ from sklearn.metrics import roc_auc_score, classification_report
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ── paths ──────────────────────────────────────────────────────────────────────
-RANKING_MODEL_PATH = "/Users/subhash/blend/model_ranking.joblib"
-CHURN_MODEL_PATH   = "/Users/subhash/blend/model_churn.joblib"
+_BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RANKING_MODEL_PATH = os.path.join(_BASE, "model_ranking.joblib")
+CHURN_MODEL_PATH   = os.path.join(_BASE, "model_churn.joblib")
 
 RDS_CONN = (
     "host=database-1.cyjemsoykvhs.us-east-1.rds.amazonaws.com "
