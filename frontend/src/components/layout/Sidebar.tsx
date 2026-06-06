@@ -9,7 +9,6 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { to: '/match', icon: 'person_search', label: 'Match Requests' },
   { to: '/outreach', icon: 'chat_bubble', label: 'Outreach Log' },
   { to: '/bridges', icon: 'emergency_home', label: 'Bridge Status' },
   { to: '/donors', icon: 'group_off', label: 'Donor Panel' },
