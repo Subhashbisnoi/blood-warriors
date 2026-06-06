@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -198,6 +198,50 @@ function tierIcon(tier: string) {
   return 'star_border';
 }
 
+function CityDropdown({ city, onChange }: { city: City; onChange: (c: City) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const sorted = [...INDIA_CITIES].sort((a, b) => a.name.localeCompare(b.name));
+
+  React.useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 bg-surface-container-lowest border border-outline-variant rounded-lg py-sm pl-10 pr-8 text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer text-left"
+      >
+        <span className="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">location_on</span>
+        {city.name} — {city.state}
+        <span className="material-symbols-outlined absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-56 overflow-y-auto" style={{ zIndex: 9999 }}>
+          {sorted.map(c => (
+            <button
+              key={`${c.name}|${c.state}`}
+              type="button"
+              onClick={() => { onChange(c); setOpen(false); }}
+              className={`w-full text-left px-md py-sm text-body-md hover:bg-surface-container transition-colors ${c.name === city.name && c.state === city.state ? 'bg-primary-container text-on-primary font-bold' : 'text-on-surface'}`}
+            >
+              {c.name} — {c.state}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MatchPage() {
   const navigate = useNavigate();
   const [selectedBG, setSelectedBG] = useState('O+');
@@ -337,24 +381,7 @@ export default function MatchPage() {
                 {/* Location */}
                 <div>
                   <label className="block text-label-md text-on-surface-variant mb-sm">Hospital / Location</label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">location_on</span>
-                    <select
-                      value={`${city.name}|${city.state}`}
-                      onChange={e => {
-                        const found = INDIA_CITIES.find(c => `${c.name}|${c.state}` === e.target.value);
-                        if (found) setCity(found);
-                      }}
-                      className="w-full appearance-none bg-surface-container-lowest border border-outline-variant rounded-lg py-sm pl-10 pr-8 text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-                    >
-                      {[...INDIA_CITIES].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
-                        <option key={`${c.name}|${c.state}`} value={`${c.name}|${c.state}`}>
-                          {c.name} — {c.state}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
-                  </div>
+                  <CityDropdown city={city} onChange={setCity} />
                   <div className="mt-sm h-48 rounded-lg border border-outline-variant overflow-hidden">
                     <MapContainer
                       center={[city.lat, city.lng]}

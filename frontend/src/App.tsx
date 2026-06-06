@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { getToken } from './api/client';
 import Sidebar from './components/layout/Sidebar';
 import Login from './pages/Login';
@@ -16,6 +16,30 @@ import BillsDashboardPage from './pages/BillsDashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import InventoryDashboard from './pages/InventoryDashboard';
 
+function ChatFab() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  if (location.pathname === '/chat') return null;
+  return (
+    <button
+      onClick={() => navigate('/chat')}
+      title="AI Assistant"
+      style={{
+        position: 'fixed', bottom: 28, right: 28, zIndex: 9999,
+        width: 56, height: 56, borderRadius: '50%',
+        background: '#f04163', border: 'none', cursor: 'pointer',
+        boxShadow: '0 4px 16px rgba(240,65,99,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.1)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+    >
+      <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: 26 }}>smart_toy</span>
+    </button>
+  );
+}
+
 function RequireAuth() {
   if (!getToken()) return <Navigate to="/" replace />;
   return (
@@ -24,6 +48,7 @@ function RequireAuth() {
       <div className="flex-1 flex flex-col min-w-0">
         <Outlet />
       </div>
+      <ChatFab />
     </div>
   );
 }
