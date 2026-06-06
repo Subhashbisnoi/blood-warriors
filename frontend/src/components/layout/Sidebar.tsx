@@ -13,7 +13,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/outreach', icon: 'chat_bubble', label: 'Outreach Log' },
   { to: '/bridges', icon: 'emergency_home', label: 'Bridge Status' },
   { to: '/donors', icon: 'group_off', label: 'Donor Panel' },
-  { to: '/analytics', icon: 'analytics', label: 'Analytics' },
   { to: '/bills', icon: 'receipt_long', label: 'Medical Bills' },
   { to: '/inventory/dashboard', icon: 'inventory_2', label: 'Inventory' },
 ];
