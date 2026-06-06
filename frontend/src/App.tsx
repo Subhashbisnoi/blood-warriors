@@ -4,8 +4,6 @@ import Sidebar from './components/layout/Sidebar';
 import Login from './pages/Login';
 import PatientLogin from './pages/patient/PatientLogin';
 import PatientPortal from './pages/patient/PatientPortal';
-import PatientMatchPage from './pages/patient/PatientMatchPage';
-import PatientOutreach from './pages/patient/PatientOutreach';
 import Dashboard from './pages/Dashboard';
 import MatchPage from './pages/MatchPage';
 import LiveOutreach from './pages/LiveOutreach';
@@ -82,8 +80,9 @@ export default function App() {
         <Route path="/patient-login" element={<PatientLogin />} />
         <Route path="/patient" element={<PatientPortal />}>
           <Route index element={<Navigate to="/patient/match" replace />} />
-          <Route path="match" element={<PatientMatchPage />} />
-          <Route path="outreach" element={<PatientOutreach />} />
+          <Route path="match" element={<MatchPage />} />
+          <Route path="outreach" element={<LiveOutreach />} />
+          <Route path="chat" element={<ChatAssistant />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

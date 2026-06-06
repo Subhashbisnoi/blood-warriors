@@ -268,7 +268,20 @@ function CityDropdown({ city, onChange }: { city: City; onChange: (c: City) => v
 
 export default function MatchPage() {
   const navigate = useNavigate();
-  const [selectedBG, setSelectedBG] = useState('O+');
+
+  // If the user is a patient, lock blood group to their profile
+  const patientBG = (() => {
+    try {
+      const p = localStorage.getItem('bw_patient_profile');
+      if (!p) return null;
+      const profile = JSON.parse(p);
+      const bg = profile.blood_group ?? '';
+      const short = Object.entries(BG_MAP).find(([, v]) => v === bg)?.[0];
+      return short ?? (BG_MAP[bg] ? bg : null);
+    } catch { return null; }
+  })();
+
+  const [selectedBG, setSelectedBG] = useState(patientBG ?? 'O+');
   const [date, setDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
@@ -367,18 +380,27 @@ export default function MatchPage() {
               <div className="flex flex-col gap-md">
                 {/* Blood group selector */}
                 <div>
-                  <label className="block text-label-md text-on-surface-variant mb-sm">Required Blood Group</label>
+                  <label className="block text-label-md text-on-surface-variant mb-sm">
+                    Required Blood Group
+                    {patientBG && (
+                      <span className="ml-2 inline-flex items-center gap-xs text-label-sm text-on-surface-variant font-normal">
+                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>lock</span>
+                        locked to your profile
+                      </span>
+                    )}
+                  </label>
                   <div className="grid grid-cols-4 gap-sm">
                     {BLOOD_GROUPS.map(bg => (
                       <button
                         key={bg}
                         type="button"
-                        onClick={() => setSelectedBG(bg)}
+                        onClick={() => !patientBG && setSelectedBG(bg)}
+                        disabled={!!patientBG && bg !== selectedBG}
                         className={`py-sm rounded-lg border text-center text-label-md transition-colors ${
                           selectedBG === bg
                             ? 'border-2 border-primary bg-primary text-on-primary shadow-sm'
                             : 'border-outline-variant text-on-surface bg-surface-container-lowest hover:bg-surface-variant'
-                        }`}
+                        } ${patientBG && bg !== selectedBG ? 'opacity-30 cursor-not-allowed' : ''}`}
                       >
                         {bg}
                       </button>
