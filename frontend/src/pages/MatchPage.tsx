@@ -359,13 +359,13 @@ function BulkResultBlock({ result, navigate }: { result: BulkResultItem; navigat
       </button>
       {open && result.status === 'matched' && (
         <div className="px-md pb-md flex flex-col gap-sm">
-          {(result.candidates as Record<string, unknown>[]).map((c, i) => (
+          {(result.candidates as unknown as Record<string, unknown>[]).map((c, i) => (
             <div key={i} className="bg-surface rounded-lg border border-outline-variant/40 p-sm flex items-center gap-sm">
               <span className="w-6 h-6 rounded-full bg-primary-container text-on-primary text-label-sm font-bold flex items-center justify-center shrink-0">{i + 1}</span>
               <span className="font-mono text-label-md font-bold text-on-surface flex-1">{c.user_id_hash_short as string}</span>
               <span className="text-label-sm text-on-surface-variant">{c.city as string}</span>
               <span className="text-label-sm text-on-surface-variant">{(c.distance_km as number)?.toFixed(1)} km</span>
-              {c.tier && <span className="text-label-xs px-xs py-[1px] rounded text-white font-bold" style={{ background: TIER_CLR[c.tier as string] || '#6b7280', fontSize: 10 }}>{c.tier as string}</span>}
+              {(c.tier as string) && <span className="text-label-xs px-xs py-[1px] rounded text-white font-bold" style={{ background: TIER_CLR[c.tier as string] || '#6b7280', fontSize: 10 }}>{c.tier as string}</span>}
               <span className="text-label-sm font-bold" style={{ color: '#22c55e' }}>{((c.score as number) * 100)?.toFixed(0)}%</span>
             </div>
           ))}

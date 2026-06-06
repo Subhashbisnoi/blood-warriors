@@ -101,7 +101,7 @@ export default function PatientGratitude() {
                   Donor ID <span className="font-normal text-on-surface-variant">(4–8 characters)</span>
                 </label>
                 <div className="flex items-center gap-sm px-md py-md rounded-xl border transition-all focus-within:ring-2"
-                     style={{ borderColor: 'rgba(186,26,26,0.2)', focusRingColor: '#ba1a1a' }}>
+                     style={{ borderColor: 'rgba(186,26,26,0.2)' }}>
                   <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 20 }}>badge</span>
                   <input
                     type="text"
