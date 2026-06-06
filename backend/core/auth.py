@@ -28,5 +28,17 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     return verify_token(token)
 
 
+USERS = {
+    settings.ADMIN_EMAIL: {"password": settings.ADMIN_PASSWORD, "role": "admin", "name": "Admin"},
+    "volunteer@bloodwarriors.in": {"password": "volunteer123", "role": "member", "name": "Volunteer"},
+}
+
+def authenticate_user(email: str, password: str):
+    """Return user info dict or None."""
+    user = USERS.get(email)
+    if user and user["password"] == password:
+        return user
+    return None
+
 def authenticate_admin(email: str, password: str) -> bool:
-    return email == settings.ADMIN_EMAIL and password == settings.ADMIN_PASSWORD
+    return authenticate_user(email, password) is not None

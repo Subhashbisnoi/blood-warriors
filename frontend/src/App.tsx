@@ -13,6 +13,8 @@ import DonorPortal from './pages/DonorPortal';
 import BillsPage from './pages/BillsPage';
 import BillUploadPage from './pages/BillUploadPage';
 import BillsDashboardPage from './pages/BillsDashboardPage';
+import InventoryPage from './pages/InventoryPage';
+import InventoryDashboard from './pages/InventoryDashboard';
 
 function RequireAuth() {
   if (!getToken()) return <Navigate to="/" replace />;
@@ -44,6 +46,8 @@ export default function App() {
           <Route path="/bills" element={<BillsPage />} />
           <Route path="/bills/upload" element={<BillUploadPage />} />
           <Route path="/bills/dashboard" element={<BillsDashboardPage />} />
+          <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/inventory/dashboard" element={<InventoryDashboard />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

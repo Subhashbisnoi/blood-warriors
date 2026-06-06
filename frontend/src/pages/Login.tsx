@@ -1,12 +1,11 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@bloodwarriors.in');
-  const [password, setPassword] = useState('demo123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,7 +18,7 @@ export default function Login() {
       await login(email, password);
       navigate('/dashboard');
     } catch {
-      setError('Invalid credentials. Try admin@bloodwarriors.in / demo123');
+      setError('Invalid credentials. Please check your email and password.');
     } finally {
       setLoading(false);
     }
@@ -133,7 +132,27 @@ export default function Login() {
               </button>
             </form>
 
-            <div className="pt-xl border-t border-outline-variant/30 text-center">
+            <div className="pt-md border-t border-outline-variant/30">
+              <p className="text-label-sm text-on-surface-variant text-center mb-sm">Quick login</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('admin@bloodwarriors.in'); setPassword('demo123') }}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 10, border: '1px solid #dc2626', background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('volunteer@bloodwarriors.in'); setPassword('volunteer123') }}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 10, border: '1px solid #6b7280', background: 'transparent', color: '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Volunteer
+                </button>
+              </div>
+            </div>
+
+            <div className="text-center">
               <p className="text-label-sm text-on-surface-variant flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-[16px]">verified_user</span>
                 Powered by Claude AI • DPDP Compliant

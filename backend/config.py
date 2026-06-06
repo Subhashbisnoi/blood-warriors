@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.CORS_ORIGINS.split(",")]
 
     class Config:
-        env_file = "/Users/subhash/blend/blood-warriors/.env"
+        env_file = ".env"
 
 
 settings = Settings()
