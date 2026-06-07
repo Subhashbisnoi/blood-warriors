@@ -22,11 +22,16 @@ def get_outreach_events(match_id: str, db: Session = Depends(get_db)):
 
     events = []
     for r in rows:
-        payload = {}
-        try:
-            payload = json.loads(r["payload"]) if r["payload"] else {}
-        except Exception:
-            pass
+        raw = r["payload"]
+        if isinstance(raw, dict):
+            payload = raw
+        elif isinstance(raw, str):
+            try:
+                payload = json.loads(raw)
+            except Exception:
+                payload = {}
+        else:
+            payload = {}
         events.append({
             "event_type": r["event_type"],
             "timestamp": r["created_at"].isoformat() if r["created_at"] else None,
