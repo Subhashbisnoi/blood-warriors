@@ -171,6 +171,24 @@ def _log_event(db: Session, match_id: str, data: dict):
         db.rollback()
 
 
+async def _poll_for_response(db: Session, log_id: str, timeout_secs: int) -> str:
+    """Poll outreach_log for a real webhook response. Falls back to no_response on timeout."""
+    poll_every = min(3, max(1, timeout_secs // 10))
+    waited = 0
+    while waited < timeout_secs:
+        await asyncio.sleep(poll_every)
+        waited += poll_every
+        db.expire_all()
+        resp = db.execute(text(
+            "SELECT response FROM outreach_log WHERE id = :id"
+        ), {"id": log_id}).scalar()
+        if resp == "CONFIRM":
+            return "confirmed"
+        elif resp in ("DECLINE", "OPT_OUT"):
+            return "declined"
+    return "no_response"
+
+
 async def simulate_outreach_escalation(
     match_id: str,
     candidates: list[dict],
@@ -248,10 +266,12 @@ async def simulate_outreach_escalation(
                 twilio_result.get("sid", ""), sent_at,
             )
 
-            await asyncio.sleep(step_secs)
-
-            # ── Follow-up if no_response ─────────────────────────────────────
-            outcome = random.choices(OUTCOMES, WEIGHTS)[0]
+            # ── Wait for real reply (rank 1) or simulate (others) ───────────
+            if rank == 1:
+                outcome = await _poll_for_response(db, outreach_log_id, step_secs)
+            else:
+                await asyncio.sleep(step_secs)
+                outcome = random.choices(OUTCOMES, WEIGHTS)[0]
 
             if outcome == "no_response" and demo_to and rank == 1:
                 await asyncio.sleep(step_secs)
@@ -270,13 +290,13 @@ async def simulate_outreach_escalation(
                 }
                 await manager.broadcast(followup_data)
                 _log_event(db, match_id, followup_data)
-                _insert_outreach_log(
+                followup_log_id = _insert_outreach_log(
                     db, match_id, bridge_id, donor_id,
                     followup_result.get("channel", "whatsapp"),
                     followup_result.get("body", ""),
                     followup_result.get("sid", ""), followup_sent_at,
                 )
-                await asyncio.sleep(step_secs)
+                outcome = await _poll_for_response(db, followup_log_id, step_secs)
 
             # ── Log outcome ──────────────────────────────────────────────────
             response_at = _now()
