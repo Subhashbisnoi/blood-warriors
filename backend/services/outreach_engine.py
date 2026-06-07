@@ -61,7 +61,7 @@ def _insert_outreach_log(
                 id, donor_user_id, bridge_id, match_request_id,
                 channel, message_template, message_body, sent_at
             ) VALUES (
-                :id, :donor_id::uuid, :bridge_id::uuid, :match_id::uuid,
+                :id, CAST(:donor_id AS uuid), CAST(:bridge_id AS uuid), CAST(:match_id AS uuid),
                 :channel, :sid, :body, :sent_at
             )
         """), {
@@ -118,7 +118,7 @@ def _insert_match_candidate(db: Session, match_id: str, donor_id: str, candidate
                 active_bonus, proximity_score, type_bonus, timing_score,
                 distance_km, explanation_en
             ) VALUES (
-                :id, :mid::uuid, :donor_id::uuid, :rank,
+                :id, CAST(:mid AS uuid), CAST(:donor_id AS uuid), :rank,
                 :kag_score, :tier, :reliability, :engagement,
                 :active_bonus, :proximity, :type_bonus, :timing,
                 :distance_km, :explanation
@@ -127,7 +127,7 @@ def _insert_match_candidate(db: Session, match_id: str, donor_id: str, candidate
         """), {
             "id": str(uuid4()),
             "mid": match_id,
-            "donor_id": donor_id or None,
+            "donor_id": _as_uuid(donor_id),
             "rank": rank,
             "kag_score": candidate.get("score") or candidate.get("kag_score"),
             "tier": candidate.get("tier") or candidate.get("donor_tier") or "Reserve",
@@ -150,7 +150,7 @@ def _update_match_candidate_status(db: Session, match_id: str, donor_id: str, ou
         db.execute(text("""
             UPDATE match_candidates
             SET outreach_status = :status, contacted_at = NOW()
-            WHERE match_request_id = :mid::uuid AND donor_user_id = :donor_id::uuid
+            WHERE match_request_id = CAST(:mid AS uuid) AND donor_user_id = CAST(:donor_id AS uuid)
         """), {
             "status": _OUTCOME_TO_RESPONSE.get(outcome, "NO_RESPONSE"),
             "mid": match_id,
