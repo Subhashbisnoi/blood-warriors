@@ -89,19 +89,16 @@ def _update_outreach_log(
     sent_at: datetime,
 ):
     try:
-        latency = int((response_at - sent_at).total_seconds()) if outcome != "no_response" else None
         db.execute(text("""
             UPDATE outreach_log
             SET response = :resp,
                 response_text = :text,
-                response_at = :rat,
-                response_latency_secs = :latency
+                response_at = :rat
             WHERE id = :id
         """), {
             "resp": _OUTCOME_TO_RESPONSE.get(outcome, "NO_RESPONSE"),
             "text": response_text,
             "rat": response_at if outcome != "no_response" else None,
-            "latency": latency,
             "id": log_id,
         })
         db.commit()
