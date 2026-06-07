@@ -280,7 +280,6 @@ async def simulate_outreach_escalation(
                 outcome = random.choices(OUTCOMES, WEIGHTS)[0]
 
             if outcome == "no_response" and demo_to and rank == 1:
-                await asyncio.sleep(step_secs)
                 followup_result = send_followup_message(
                     to_number=demo_to,
                     donor_name=donor_name,
