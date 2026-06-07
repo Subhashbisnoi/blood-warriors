@@ -163,21 +163,17 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
 
         match_id_for_ws = None
         if log_row:
-            sent_at = log_row["sent_at"]
-            latency = int((now - sent_at).total_seconds()) if sent_at else None
             match_id_for_ws = str(log_row["match_request_id"]) if log_row.get("match_request_id") else None
             db.execute(text("""
                 UPDATE outreach_log
                 SET response = :resp,
                     response_text = :text,
-                    response_at = :rat,
-                    response_latency_secs = :latency
+                    response_at = :rat
                 WHERE id = :id
             """), {
                 "resp": response_enum,
                 "text": body_text,
                 "rat": now,
-                "latency": latency,
                 "id": str(log_row["id"]),
             })
 
