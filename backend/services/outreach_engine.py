@@ -1,8 +1,14 @@
 import asyncio
 import random
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
+
+_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
+
+def _as_uuid(val: str) -> Optional[str]:
+    return val if val and _UUID_RE.match(val) else None
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.core.websocket_manager import manager
@@ -60,8 +66,8 @@ def _insert_outreach_log(
             )
         """), {
             "id": log_id,
-            "donor_id": donor_id or None,
-            "bridge_id": bridge_id or None,
+            "donor_id": _as_uuid(donor_id),
+            "bridge_id": _as_uuid(bridge_id),
             "match_id": match_id,
             "channel": channel,
             "sid": twilio_sid,
